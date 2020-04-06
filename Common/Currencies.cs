@@ -29,6 +29,12 @@ namespace QuantConnect
         public static string USD = "USD";
 
         /// <summary>
+        /// CAD currency string
+        /// </summary>
+        public static string CAD = "CAD";
+
+
+        /// <summary>
         /// Null currency used when a real one is not required
         /// </summary>
         public const string NullCurrency = "QCC";
