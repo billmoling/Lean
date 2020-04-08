@@ -44,7 +44,7 @@ namespace QuantConnect.ToolBox.YahooDownloader
                 var dataDirectory = Config.Get("data-directory", "../../../Data");
 
                 // Create an instance of the downloader
-                const string market = Market.USA;
+                const string market = Market.XTSE;
                 var downloader = new YahooDataDownloader();
 
                 foreach (var ticker in tickers)

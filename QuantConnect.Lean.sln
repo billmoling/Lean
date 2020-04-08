@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26730.12
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30002.166
 MinimumVisualStudioVersion = 15.0.0.0
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantConnect.Lean.Launcher", "Launcher\QuantConnect.Lean.Launcher.csproj", "{09E7B916-E58B-4021-BD8B-C10B4446E226}"
 EndProject
@@ -55,6 +55,8 @@ EndProject
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "QuantConnect.PythonToolbox", "PythonToolbox\QuantConnect.PythonToolbox.pyproj", "{1C47F4DB-2AFF-4FAE-9142-B33BE654A516}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantConnect.Report", "Report\QuantConnect.Report.csproj", "{2431419F-8BC6-4F59-944E-9A1CD28982DF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Quant.XTSE.DataPrep", "Quant.XTSE.DataPrep\Quant.XTSE.DataPrep.csproj", "{6BE510B0-4604-486C-A025-70AE392889E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -210,6 +212,14 @@ Global
 		{2431419F-8BC6-4F59-944E-9A1CD28982DF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{2431419F-8BC6-4F59-944E-9A1CD28982DF}.Release|x64.ActiveCfg = Release|Any CPU
 		{2431419F-8BC6-4F59-944E-9A1CD28982DF}.Release|x64.Build.0 = Release|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Debug|x64.Build.0 = Debug|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Release|x64.ActiveCfg = Release|Any CPU
+		{6BE510B0-4604-486C-A025-70AE392889E8}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
