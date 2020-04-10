@@ -82,7 +82,9 @@ namespace QuantConnect.Securities
         public CashBook()
         {
             _currencies = new ConcurrentDictionary<string, Cash>();
-            AccountCurrency = Currencies.USD;
+            //TODO: modify from USD to CAD
+            AccountCurrency = Currencies.CAD;
+            //AccountCurrency = Currencies.USD;
         }
 
         /// <summary>

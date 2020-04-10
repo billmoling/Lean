@@ -9,9 +9,11 @@
   "environment": "backtesting", // "live-paper", "backtesting", "live-interactive", "live-interactive-iqfeed"
 
   // algorithm class selector
+  //"algorithm-type-name": "BasicXTSEStockAlgorithm",
   "algorithm-type-name": "BasicXTSEStockAlgorithm",
 
   // Algorithm language selector - options CSharp, FSharp, VisualBasic, Python, Java
+  //"algorithm-language": "Python",
   "algorithm-language": "CSharp",
 
   //Physical DLL location

@@ -13,6 +13,7 @@ namespace Quant.XTSE.DataPrep
     {
         static void Main(string[] args)
         {
+            /*
             string ETF_str = @"RY,TD,ENB,CNR,BNS,SHOP,TRP,BCE,ABX,ATD-B,BMO,BAM-A,CP,CM,
                             SU,MFC,WCN,T,NTR,SLF,FNV,CSU,FTS,CNQ,RCI-B,GIB-A,NA,IFC,WPM,QSR,
                             TRI,BIP-UN,MRU,PPL,AEM,EMA,OTEX,POW,MG,L,FFH,DOL,KL,SJRB,AQN,SAP,H,BEP-UN,
@@ -26,6 +27,9 @@ namespace Quant.XTSE.DataPrep
                             CAS,ECN,OGC,LSPD,NFI,MAG,SIA,RUS,CRT-UN,BAD,SVM,OSB,ARE,CGX,USD,GUD,VET,SEA,EQB,ERO,HBM,
                             CPG,ITP,WTE,EIF,MRE,CLS,CJRB,EFX,WCP,EXE,ERF,PSI,CHE.UN,MEG,CFP,VII,IFP,CHR,MTY,MTL,TOY,
                             ZZZ,AFN,AD,HEXO,FRU,FEC,BTE,SES,SCL";
+    */
+
+            string ETF_str = "SPY";
             DateTime fromDate = new DateTime(2000, 1, 4);
             DateTime toDate = DateTime.Now.AddDays(-1);
 
