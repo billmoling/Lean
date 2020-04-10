@@ -20,6 +20,8 @@ namespace QuantConnect.Algorithm.CSharp
         private Equity xic;
         private Momentum _xicmomentum;
         private Dictionary<Symbol, Momentum> mom;
+        private ExponentialMovingAverage xic_50;
+        private ExponentialMovingAverage xic_200;
         public override void Initialize()
         {
             SetStartDate(2010, 1, 4);
@@ -35,6 +37,8 @@ namespace QuantConnect.Algorithm.CSharp
 
 
             _xicmomentum = MOM(xic.Symbol, 126, Resolution.Daily);
+            xic_50 = EMA(xic.Symbol, 50);
+            xic_200 = EMA(xic.Symbol, 200);
 
             foreach (var item in stock_list)
             {
@@ -53,9 +57,21 @@ namespace QuantConnect.Algorithm.CSharp
 
         private void Rebalance()
         {
+
+            bool trend = false;
+            if (xic_50<xic_200)
+            {
+                trend = true;
+            }
+            
+            
+            
+            
             //2. Sort the list of dictionaries by indicator in descending order
             var selected_stock = mom.OrderByDescending(kvp => kvp.Value).Take(5).ToList();
             //Insight.Price(ordered.First().Key, TimeSpan.FromDays(1), InsightDirection.Up)
+
+
 
             foreach (var item in ActiveSecurities.Where(c => c.Value.Invested == true))
             {
@@ -68,10 +84,10 @@ namespace QuantConnect.Algorithm.CSharp
 
             foreach (var item in selected_stock)
             {
-                if (!ActiveSecurities[item.Key].Invested & _xicmomentum > 0)
+                if (!ActiveSecurities[item.Key].Invested & trend)
                 {
 
-                    var quantity = CalculateOrderQuantity(item.Key, 0.2);
+                    var quantity = CalculateOrderQuantity(item.Key, 0.15);
 
                     var purchase = MarketOrder(item.Key, quantity);
                     StopMarketOrder(item.Key, quantity, purchase.AverageFillPrice*0.88m);
