@@ -18,7 +18,7 @@ namespace QuantConnect.Algorithm.CSharp
     public class BasicXTSEStockAlgorithm:QCAlgorithm
     {
         private Equity xic;
-        private Momentum _xicmomentum;
+        private Equity xbb;
         private Dictionary<Symbol, Momentum> mom;
         private ExponentialMovingAverage xic_50;
         private ExponentialMovingAverage xic_200;
@@ -30,13 +30,12 @@ namespace QuantConnect.Algorithm.CSharp
             SetCash(100000);
             List<Symbol> stock_list=PrepUniverse();
 
-            xic=AddEquity("XIC.TO", Resolution.Daily, Market.XTSE);
+
             UniverseSettings.Resolution = Resolution.Daily;
 
             mom = new Dictionary<Symbol, Momentum>();
-
-
-            _xicmomentum = MOM(xic.Symbol, 126, Resolution.Daily);
+            xic=AddEquity("XIC.TO", Resolution.Daily, Market.XTSE);
+            xbb=AddEquity("XBB.TO", Resolution.Daily, Market.XTSE);
             xic_50 = EMA(xic.Symbol, 50);
             xic_200 = EMA(xic.Symbol, 200);
 
@@ -59,19 +58,12 @@ namespace QuantConnect.Algorithm.CSharp
         {
 
             bool trend = false;
-            if (xic_50<xic_200)
+            if (xic_50 < xic_200)
             {
                 trend = true;
             }
             
-            
-            
-            
-            //2. Sort the list of dictionaries by indicator in descending order
             var selected_stock = mom.OrderByDescending(kvp => kvp.Value).Take(5).ToList();
-            //Insight.Price(ordered.First().Key, TimeSpan.FromDays(1), InsightDirection.Up)
-
-
 
             foreach (var item in ActiveSecurities.Where(c => c.Value.Invested == true))
             {
@@ -86,13 +78,21 @@ namespace QuantConnect.Algorithm.CSharp
             {
                 if (!ActiveSecurities[item.Key].Invested & trend)
                 {
-
+                    Liquidate(xbb.Symbol);
                     var quantity = CalculateOrderQuantity(item.Key, 0.15);
 
                     var purchase = MarketOrder(item.Key, quantity);
                     StopMarketOrder(item.Key, quantity, purchase.AverageFillPrice*0.88m);
                 }
             }
+
+            if (!trend)
+            {
+                var quantity = CalculateOrderQuantity(xbb.Symbol, 0.5);
+                MarketOrder(xbb.Symbol, quantity);
+            }
+
+            
         }
         
 

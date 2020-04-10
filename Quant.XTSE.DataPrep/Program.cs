@@ -29,7 +29,7 @@ namespace Quant.XTSE.DataPrep
                             ZZZ,AFN,AD,HEXO,FRU,FEC,BTE,SES,SCL";
     */
 
-            string ETF_str = "SPY";
+            string ETF_str = "XBB";
             DateTime fromDate = new DateTime(2000, 1, 4);
             DateTime toDate = DateTime.Now.AddDays(-1);
 
