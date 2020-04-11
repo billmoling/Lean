@@ -141,7 +141,7 @@ namespace QuantConnect.Lean.Launcher
                 leanEngineSystemHandlers.Dispose();
                 leanEngineAlgorithmHandlers.Dispose();
                 Log.LogHandler.Dispose();
-
+                Log.Trace("Start to Generate Tear Report " + job.AlgorithmId);
                 using (Runspace myRunSpace = RunspaceFactory.CreateRunspace())
                 {
                     myRunSpace.Open();
@@ -157,8 +157,8 @@ namespace QuantConnect.Lean.Launcher
                         powershell.Commands.Clear();
                     }
                 }
+                Log.Trace("Finish Tear Report " + job.AlgorithmId);
 
-                
                 Log.Trace("Program.Main(): Exiting Lean...");
                 System.Console.Read();
                 Environment.Exit(0);

@@ -28,6 +28,8 @@ using QuantConnect.Statistics;
 using QuantConnect.Util;
 using System.IO;
 using QuantConnect.Lean.Engine.Alphas;
+using CsvHelper;
+using System.Globalization;
 
 namespace QuantConnect.Lean.Engine.Results
 {
@@ -314,6 +316,7 @@ namespace QuantConnect.Lean.Engine.Results
 
                     // Store Order Events in a separate file
                     StoreOrderEvents(Algorithm.UtcTime, result.Results.OrderEvents);
+                    //StoreOrderEventToCSV(result.Results.OrderEvents);
                 }
                 else
                 {
@@ -325,6 +328,21 @@ namespace QuantConnect.Lean.Engine.Results
                 Log.Error(err);
             }
         }
+        /// <summary>
+        /// Write OrderEvent to CSV
+        /// </summary>
+        /// <param name="OrderEvents"></param>
+        private void StoreOrderEventToCSV(List<OrderEvent> OrderEvents)
+        {
+            using (var writer = new StreamWriter("order-event.csv"))
+            using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+            {
+
+                csv.Configuration.Delimiter = ",";
+                csv.WriteRecords(OrderEvents);
+            }
+        }
+
 
         /// <summary>
         /// Send a final analysis result back to the IDE.
