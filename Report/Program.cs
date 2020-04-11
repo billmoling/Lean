@@ -15,12 +15,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
 using System.IO;
+using CsvHelper;
 using Newtonsoft.Json;
 using QuantConnect.Configuration;
 using QuantConnect.Logging;
+using QuantConnect.Orders;
 using QuantConnect.Packets;
 using QuantConnect.Python;
+
 
 namespace QuantConnect.Report
 {
@@ -31,6 +36,7 @@ namespace QuantConnect.Report
     {
         static void Main(string[] args)
         {
+
             // Adds the current working directory to the PYTHONPATH env var.
             PythonInitializer.SetPythonPathEnvironmentVariable();
 
@@ -71,6 +77,8 @@ namespace QuantConnect.Report
             Log.Trace("QuantConnect.Report.Main(): Starting content compile...");
             var html = report.Compile();
 
+            
+
             //Write it to target destination.
             if (destination != string.Empty)
             {
@@ -84,5 +92,40 @@ namespace QuantConnect.Report
             Log.Trace("QuantConnect.Report.Main(): Completed.");
             //Console.ReadKey();
         }
+
+
+        
+        /*
+        public static void jsonToCSV()
+        {
+            using (var writer = new StreamWriter("order-event.csv"))
+            using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+            {
+  
+                csv.Configuration.Delimiter = ",";
+           
+
+
+                using (var dt = JsonConvert.DeserializeObject<OrderEvent>(File.ReadAllText("BasicXTSEStockAlgorithm-order-events.json")))
+                {
+                    foreach (DataColumn column in dt.Columns)
+                    {
+                        csv.WriteField(column.ColumnName);
+                    }
+                    csv.NextRecord();
+
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        for (var i = 0; i < dt.Columns.Count; i++)
+                        {
+                            csv.WriteField(row[i]);
+                        }
+                        csv.NextRecord();
+                    }
+                }
+            }
+        }
+
+    */
     }
 }
