@@ -25,6 +25,11 @@ function RunBackTest {
 
 
 function RunTearReport{
+
+    if ($runmode -eq "Report") {
+        Copy-Item -Path ".\customize-output.txt"  -Destination "C:\Coding\QuantConnectLean\Result\$newFolderName"
+    }
+
     #for reporting generation
     Copy-Item -Path ".\$oldfileName.json"  -Destination "C:\Coding\QuantConnectLean\Lean\Report\bin\Debug\$oldfileName.json"
 

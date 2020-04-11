@@ -28,7 +28,7 @@ namespace QuantConnect.Logging
         /// Initializes a new instance of the <see cref="CompositeLogHandler"/> that pipes log messages to the console and log.txt
         /// </summary>
         public CompositeLogHandler()
-            : this(new ConsoleLogHandler(), new FileLogHandler())
+            : this(new ConsoleLogHandler(), new FileLogHandler(),new FileLogHandler("customize-output.txt",false))
         {
         }
 
