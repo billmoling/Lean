@@ -22,6 +22,7 @@ namespace QuantConnect.Algorithm.CSharp
         private Dictionary<Symbol, MomentumPercent> mom;
         private ExponentialMovingAverage xic_50;
         private ExponentialMovingAverage xic_200;
+        private Dictionary<Symbol, decimal> broughtStock;
         public override void Initialize()
         {
             SetStartDate(2010, 1, 4);
@@ -34,7 +35,9 @@ namespace QuantConnect.Algorithm.CSharp
             UniverseSettings.Resolution = Resolution.Daily;
 
             mom = new Dictionary<Symbol, MomentumPercent>();
-            xic=AddEquity("SPY", Resolution.Daily, Market.USA);
+            broughtStock = new Dictionary<Symbol, decimal>();
+
+            xic =AddEquity("SPY", Resolution.Daily, Market.XTSE);
             SetBenchmark(xic.Symbol);
             xbb=AddEquity("XBB.TO", Resolution.Daily, Market.XTSE);
             xic_50 = EMA(xic.Symbol, 50);
@@ -71,6 +74,17 @@ namespace QuantConnect.Algorithm.CSharp
                 if (!long_stock.Exists(c => c.Key == item.Key))
                 {
                     Liquidate(item.Key);
+
+                    /*
+                     * try to micro manage to keep the momentun run, but it is not good enough.
+                     * the monthly reblance looks good enough
+                    if (broughtStock[item.Key] - mom[item.Key].ToString().ToDecimal() > 5)
+                    {
+                        broughtStock.Remove(item.Key);
+                        Liquidate(item.Key);
+                    }
+                    */
+                    
                 }
             }
 
@@ -84,6 +98,10 @@ namespace QuantConnect.Algorithm.CSharp
 
                     var purchase = MarketOrder(item.Key, quantity);
                     StopMarketOrder(item.Key, quantity, purchase.AverageFillPrice*0.88m);
+
+                    
+                    //broughtStock.Add(item.Key, item.Value.ToString().ToDecimal());
+
                 }
             }
             /*
