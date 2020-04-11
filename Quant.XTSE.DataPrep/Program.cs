@@ -38,6 +38,7 @@ namespace Quant.XTSE.DataPrep
             {
                 tickers.Add(item.Trim() + ".TO");
             }
+            tickers.Add("SPY");
 
             YahooDownloaderProgram.YahooDownloader(tickers, "Daily", fromDate, toDate);
         }

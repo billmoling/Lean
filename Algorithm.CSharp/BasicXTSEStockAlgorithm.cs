@@ -25,6 +25,13 @@ namespace QuantConnect.Algorithm.CSharp
         private Dictionary<Symbol, decimal> broughtStock;
         public override void Initialize()
         {
+            
+
+
+
+
+
+
             SetStartDate(2010, 1, 4);
             SetEndDate(2019, 12, 31);
             SetAccountCurrency("CAD");
@@ -160,7 +167,6 @@ namespace QuantConnect.Algorithm.CSharp
             return symbols;
             
         }
-
 
     }
 
