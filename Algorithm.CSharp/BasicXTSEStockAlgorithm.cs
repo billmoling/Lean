@@ -19,7 +19,7 @@ namespace QuantConnect.Algorithm.CSharp
     {
         private Equity xic;
         private Equity xbb;
-        private Dictionary<Symbol, Momentum> mom;
+        private Dictionary<Symbol, MomentumPercent> mom;
         private ExponentialMovingAverage xic_50;
         private ExponentialMovingAverage xic_200;
         public override void Initialize()
@@ -33,8 +33,9 @@ namespace QuantConnect.Algorithm.CSharp
 
             UniverseSettings.Resolution = Resolution.Daily;
 
-            mom = new Dictionary<Symbol, Momentum>();
-            xic=AddEquity("XIC.TO", Resolution.Daily, Market.XTSE);
+            mom = new Dictionary<Symbol, MomentumPercent>();
+            xic=AddEquity("SPY", Resolution.Daily, Market.USA);
+            SetBenchmark(xic.Symbol);
             xbb=AddEquity("XBB.TO", Resolution.Daily, Market.XTSE);
             xic_50 = EMA(xic.Symbol, 50);
             xic_200 = EMA(xic.Symbol, 200);
@@ -42,7 +43,7 @@ namespace QuantConnect.Algorithm.CSharp
             foreach (var item in stock_list)
             {
                 AddEquity(item.Value, Resolution.Daily, Market.XTSE);
-                mom.Add(item, MOM(item, 126, Resolution.Daily));
+                mom.Add(item, MOMP(item, 126, Resolution.Daily));
             }
 
             SetWarmUp(180);
@@ -58,41 +59,42 @@ namespace QuantConnect.Algorithm.CSharp
         {
 
             bool trend = false;
-            if (xic_50 < xic_200)
+            if (xic_50 > xic_200)
             {
                 trend = true;
             }
             
-            var selected_stock = mom.OrderByDescending(kvp => kvp.Value).Take(5).ToList();
+            var long_stock = mom.OrderByDescending(kvp => kvp.Value).Take(5).ToList();
 
             foreach (var item in ActiveSecurities.Where(c => c.Value.Invested == true))
             {
-                if (!selected_stock.Exists(c => c.Key == item.Key))
+                if (!long_stock.Exists(c => c.Key == item.Key))
                 {
                     Liquidate(item.Key);
                 }
             }
 
 
-            foreach (var item in selected_stock)
+            foreach (var item in long_stock)
             {
                 if (!ActiveSecurities[item.Key].Invested & trend)
                 {
-                    Liquidate(xbb.Symbol);
+                    //Liquidate(xbb.Symbol);
                     var quantity = CalculateOrderQuantity(item.Key, 0.15);
 
                     var purchase = MarketOrder(item.Key, quantity);
                     StopMarketOrder(item.Key, quantity, purchase.AverageFillPrice*0.88m);
                 }
             }
-
+            /*
             if (!trend)
             {
                 var quantity = CalculateOrderQuantity(xbb.Symbol, 0.5);
                 MarketOrder(xbb.Symbol, quantity);
             }
-
+            */
             
+
         }
         
 
@@ -123,10 +125,11 @@ namespace QuantConnect.Algorithm.CSharp
                             CPG,ITP,WTE,EIF,MRE,CLS,CJRB,EFX,WCP,EXE,ERF,PSI,CHE.UN,MEG,CFP,VII,IFP,CHR,MTY,MTL,TOY,
                             ZZZ,AFN,AD,HEXO,FRU,FEC,BTE,SES,SCL";
             */
-
+            
             string stock_str = @"RY,TD,ENB,CNR,BNS,SHOP,TRP,BCE,ABX,ATD-B,BMO,BAM-A,CP,CM,
                             SU,MFC,WCN,T,NTR,SLF,FNV,CSU,FTS,CNQ,RCI-B,GIB-A,NA,IFC,WPM,QSR,
-                            TRI,BIP-UN,MRU,PPL,AEM,EMA,OTEX,POW,MG,L,FFH,DOL,KL,SJRB,AQN,SAP,H";
+                            TRI,BIP-UN,MRU,PPL,AEM,EMA,OTEX,POW,MG,L,FFH,DOL,SJRB,AQN,SAP,H";
+            //KL
 
             //string stock_str = @"RY,TD,ENB,CNR,BNS,SHOP,TRP,BCE,EMA";
 
