@@ -16,6 +16,8 @@
 
 using System;
 using System.ComponentModel.Composition;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using System.Threading;
 using QuantConnect.Configuration;
 using QuantConnect.Lean.Engine;
@@ -140,8 +142,25 @@ namespace QuantConnect.Lean.Launcher
                 leanEngineAlgorithmHandlers.Dispose();
                 Log.LogHandler.Dispose();
 
-                Log.Trace("Program.Main(): Exiting Lean...");
+                using (Runspace myRunSpace = RunspaceFactory.CreateRunspace())
+                {
+                    myRunSpace.Open();
+                    using (PowerShell powershell = PowerShell.Create())
+                    {
+                        // Create a pipeline with the Get-Command command.
+                        powershell.AddScript("Set-ExecutionPolicy -Scope Process -ExecutionPolicy Unrestricted");
+                        powershell.AddScript(@"C:\Coding\QuantConnectLean\Lean\ToolBox\AutomationScripts\rundailybacktest.ps1 Report");
+                        
+                        // execute the script
+                        var results = powershell.Invoke();
+                        powershell.Streams.ClearStreams();
+                        powershell.Commands.Clear();
+                    }
+                }
 
+                
+                Log.Trace("Program.Main(): Exiting Lean...");
+                System.Console.Read();
                 Environment.Exit(0);
             }
         }
