@@ -28,8 +28,10 @@ namespace Quant.XTSE.DataPrep
                             CPG,ITP,WTE,EIF,MRE,CLS,CJRB,EFX,WCP,EXE,ERF,PSI,CHE.UN,MEG,CFP,VII,IFP,CHR,MTY,MTL,TOY,
                             ZZZ,AFN,AD,HEXO,FRU,FEC,BTE,SES,SCL";
     */
+            string ETF_str = @"XBB,RY,TD,ENB,CNR,BNS,SHOP,TRP,BCE,ABX,ATD-B,BMO,BAM-A,CP,CM,
+                            SU,MFC,WCN,T,NTR,SLF,FNV,CSU,FTS,CNQ,RCI-B,GIB-A,NA,IFC,WPM,QSR,
+                            TRI,BIP-UN,MRU,PPL,AEM,EMA,OTEX,POW,MG,L,FFH,DOL,SJRB,AQN,SAP,H";
 
-            string ETF_str = "XBB";
             DateTime fromDate = new DateTime(2000, 1, 4);
             DateTime toDate = DateTime.Now.AddDays(-1);
 

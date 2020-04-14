@@ -1,25 +1,35 @@
 
 $runmode=$args[0]
 
+#$oldfileName="BasicXTSEStockAlgorithm"
+#$sourceCode="C:\Coding\QuantConnectLean\Lean\Algorithm.CSharp\$oldfileName.cs"
+
+$oldfileName="BasicAlphaStreamTSEAlgorithm"
+$sourceCode="C:\Coding\QuantConnectLean\Lean\Algorithm.Python\$oldfileName.py"
+
+
 cd C:\Coding\QuantConnectLean\Lean\Launcher\bin\Debug
-$oldfileName="BasicXTSEStockAlgorithm"
+
 $DateStamp = get-date -uformat "%Y-%m-%d-%H-%M"
 
 $newFolderName="$oldfileName-$DateStamp"
 
-New-Item -Path "C:\Coding\QuantConnectLean\Result\$newFolderName" -ItemType directory
+
 
 function RunDataDownload {
-    cd C:\Coding\QuantConnectLean\Lean\Quant.XTSE.DataPrep\bin\Debug
-    .\Quant.XTSE.DataPrep.exe
+    C:\Coding\QuantConnectLean\Lean\Quant.XTSE.DataPrep\bin\Debug\Quant.XTSE.DataPrep.exe
 }
 
 #$fileObj = get-item $fileName
 #$nameOnly = $fileObj.Name.Replace( $fileObj.Extension,'')
 #$extOnly = $fileObj.extension
+function CreateResultFolder {
+    New-Item -Path "C:\Coding\QuantConnectLean\Result\$newFolderName" -ItemType directory 
+}
 
 function RunBackTest {
     .\QuantConnect.Lean.Launcher.exe > "$oldfileName-output.txt"
+    
     Copy-Item -Path ".\$oldfileName-output.txt"  -Destination "C:\Coding\QuantConnectLean\Result\$newFolderName"
 }
 
@@ -32,8 +42,8 @@ function RunTearReport{
 
     #for reporting generation
     Copy-Item -Path ".\$oldfileName.json"  -Destination "C:\Coding\QuantConnectLean\Lean\Report\bin\Debug\$oldfileName.json"
-
-    Copy-Item -Path "C:\Coding\QuantConnectLean\Lean\Algorithm.CSharp\$oldfileName.cs"  -Destination "C:\Coding\QuantConnectLean\Result\$newFolderName"
+    Copy-Item -Path ".\$oldfileName-order-events.json"  -Destination "C:\Coding\QuantConnectLean\Result\$newFolderName"
+    Copy-Item -Path "$sourceCode"  -Destination "C:\Coding\QuantConnectLean\Result\$newFolderName"
 
     cd C:\Coding\QuantConnectLean\Lean\Report\bin\Debug
     .\QuantConnect.Report.exe --backtest-data-source-file "$oldfileName.json" --report-destination "$oldfileName.html"
@@ -60,13 +70,18 @@ function RunTearReport{
 }
 
 if ($runmode -eq "Full") {
-    RunDataDownload
+    CreateResultFolder
     RunBackTest
     RunTearReport
 }
 
 if ($runmode -eq "Report") {
+    CreateResultFolder
     RunTearReport
+}
+
+if ($runmode -eq "Data") {
+    RunDataDownload
 }
 
 

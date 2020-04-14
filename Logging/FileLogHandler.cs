@@ -41,10 +41,10 @@ namespace QuantConnect.Logging
         {
             _useTimestampPrefix = useTimestampPrefix;
             _writer = new Lazy<TextWriter>(
-                () => new StreamWriter(File.Open(filepath, FileMode.Append, FileAccess.Write, FileShare.Read))
+                () => new StreamWriter(File.Open(filepath, FileMode.Create, FileAccess.Write, FileShare.Read))
                 );
         }
-
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="FileLogHandler"/> class using 'log.txt' for the filepath.
         /// </summary>

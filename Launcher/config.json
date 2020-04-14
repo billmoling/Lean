@@ -10,15 +10,15 @@
 
   // algorithm class selector
   //"algorithm-type-name": "BasicXTSEStockAlgorithm",
-  "algorithm-type-name": "BasicXTSEStockAlgorithm",
+  "algorithm-type-name": "BasicAlphaStreamTSEAlgorithm",
 
   // Algorithm language selector - options CSharp, FSharp, VisualBasic, Python, Java
-  //"algorithm-language": "Python",
-  "algorithm-language": "CSharp",
+  "algorithm-language": "Python",
+  //"algorithm-language": "CSharp",
 
   //Physical DLL location
-  "algorithm-location": "QuantConnect.Algorithm.CSharp.dll",
-  //"algorithm-location": "../../../Algorithm.Python/BasicTemplateFrameworkAlgorithm.py",
+  //"algorithm-location": "QuantConnect.Algorithm.CSharp.dll",
+  "algorithm-location": "../../../Algorithm.Python/BasicAlphaStreamTSEAlgorithm.py",
   //"algorithm-location": "QuantConnect.Algorithm.FSharp.dll",
   //"algorithm-location": "QuantConnect.Algorithm.VisualBasic.dll",
   //"algorithm-location": "QuantConnect.Algorithm.Java.dll",
@@ -30,8 +30,9 @@
   "data-folder": "../../../Data/",
 
   // debugging configuration
-  "debugging": false,
-  "debugging-method": "LocalCmdline",
+  "debugging": true,
+  "debugging-method": "VisualStudio",
+  //"debugging-method": "LocalCmdline",
 
   // handlers
   "log-handler": "QuantConnect.Logging.CompositeLogHandler",

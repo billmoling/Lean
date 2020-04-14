@@ -26,14 +26,8 @@ namespace QuantConnect.Algorithm.CSharp
         public override void Initialize()
         {
             
-
-
-
-
-
-
-            SetStartDate(2010, 1, 4);
-            SetEndDate(2019, 12, 31);
+            SetStartDate(2019, 1, 1);
+            SetEndDate(2020,4,3);
             SetAccountCurrency("CAD");
             SetCash(100000);
             List<Symbol> stock_list=PrepUniverse();
@@ -98,7 +92,7 @@ namespace QuantConnect.Algorithm.CSharp
 
             foreach (var item in long_stock)
             {
-                if (!ActiveSecurities[item.Key].Invested & trend)
+                if (!ActiveSecurities[item.Key].Invested)
                 {
                     //Liquidate(xbb.Symbol);
                     var quantity = CalculateOrderQuantity(item.Key, 0.15);

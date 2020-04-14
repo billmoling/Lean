@@ -160,7 +160,7 @@ namespace QuantConnect.Lean.Launcher
                 Log.Trace("Finish Tear Report " + job.AlgorithmId);
 
                 Log.Trace("Program.Main(): Exiting Lean...");
-                System.Console.Read();
+                
                 Environment.Exit(0);
             }
         }
