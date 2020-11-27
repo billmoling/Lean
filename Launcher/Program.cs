@@ -18,6 +18,7 @@ using System;
 using System.ComponentModel.Composition;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.IO;
 using System.Threading;
 using QuantConnect.Configuration;
 using QuantConnect.Lean.Engine;
@@ -142,6 +143,8 @@ namespace QuantConnect.Lean.Launcher
                 leanEngineSystemHandlers.Dispose();
                 leanEngineAlgorithmHandlers.Dispose();
                 Log.LogHandler.Dispose();
+                /*
+                #region Run Tear Report
                 Log.Trace("Start to Generate Tear Report " + job.AlgorithmId);
                 using (Runspace myRunSpace = RunspaceFactory.CreateRunspace())
                 {
@@ -151,14 +154,17 @@ namespace QuantConnect.Lean.Launcher
                         // Create a pipeline with the Get-Command command.
                         powershell.AddScript("Set-ExecutionPolicy -Scope Process -ExecutionPolicy Unrestricted");
                         powershell.AddScript(@"C:\Coding\QuantConnectLean\Lean\ToolBox\AutomationScripts\rundailybacktest.ps1 Report");
-                        
+
                         // execute the script
                         var results = powershell.Invoke();
                         powershell.Streams.ClearStreams();
                         powershell.Commands.Clear();
                     }
                 }
-                Log.Trace("Finish Tear Report " + job.AlgorithmId);
+                Log.Trace("Finish Tear Report " + job.AlgorithmId); 
+                #endregion
+                */
+
 
                 Log.Trace("Program.Main(): Exiting Lean...");
                 
