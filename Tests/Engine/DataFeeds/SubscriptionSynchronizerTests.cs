@@ -28,7 +28,7 @@ using QuantConnect.Util;
 
 namespace QuantConnect.Tests.Engine.DataFeeds
 {
-    [TestFixture, Category("TravisExclude")]
+    [TestFixture, Category("TravisExclude"), Parallelizable(ParallelScope.All)]
     public class SubscriptionSynchronizerTests
     {
         [Test]
@@ -60,13 +60,15 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 RegisteredSecurityDataTypesProvider.Null,
                 new SecurityCacheProvider(algorithm.Portfolio));
             algorithm.Securities.SetSecurityService(securityService);
+            var dataPermissionManager = new DataPermissionManager();
             var dataManager = new DataManager(feed,
-                new UniverseSelection(algorithm, securityService),
+                new UniverseSelection(algorithm, securityService, dataPermissionManager, new DefaultDataProvider()),
                 algorithm,
                 algorithm.TimeKeeper,
                 marketHoursDatabase,
                 false,
-                RegisteredSecurityDataTypesProvider.Null);
+                RegisteredSecurityDataTypesProvider.Null,
+                dataPermissionManager);
             algorithm.SubscriptionManager.SetDataManager(dataManager);
 
             algorithm.Initialize();
@@ -134,7 +136,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                 Time = time,
                 EndTime = time + config.Increment
             })
-            .Select(d => SubscriptionData.Create(config, security.Exchange.Hours, offsetProvider, d))
+            .Select(d => SubscriptionData.Create(config, security.Exchange.Hours, offsetProvider, d, config.DataNormalizationMode))
             .ToList();
 
             dataPointCount = data.Count;

@@ -19,6 +19,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
@@ -33,7 +34,17 @@ namespace QuantConnect.Lean.Engine.Storage
     /// </summary>
     public class LocalObjectStore : IObjectStore
     {
-        private static string StorageRoot => Path.GetFullPath(Config.Get("object-store-root", "./storage"));
+        /// <summary>
+        /// No read permissions error message
+        /// </summary>
+        protected const string NoReadPermissionsError = "The current user does not have permission to read from the organization Object Store." +
+                                                        " Please contact your organization administrator to request permission.";
+
+        /// <summary>
+        /// No write permissions error message
+        /// </summary>
+        protected const string NoWritePermissionsError = "The current user does not have permission to write to the organization Object Store." +
+                                                         " Please contact your organization administrator to request permission.";
 
         /// <summary>
         /// Event raised each time there's an error
@@ -47,7 +58,9 @@ namespace QuantConnect.Lean.Engine.Storage
 
         private Timer _persistenceTimer;
         private TimeSpan _persistenceInterval;
+        private readonly string _storageRoot = Path.GetFullPath(Config.Get("object-store-root", "./storage"));
         private readonly ConcurrentDictionary<string, byte[]> _storage = new ConcurrentDictionary<string, byte[]>();
+        private readonly object _persistLock = new object();
 
         /// <summary>
         /// Provides access to the controls governing behavior of this instance, such as the persistence interval
@@ -70,23 +83,41 @@ namespace QuantConnect.Lean.Engine.Storage
         public virtual void Initialize(string algorithmName, int userId, int projectId, string userToken, Controls controls)
         {
             // absolute path including algorithm name
-            AlgorithmStorageRoot = Path.Combine(StorageRoot, algorithmName);
+            AlgorithmStorageRoot = Path.Combine(_storageRoot, algorithmName);
 
             // create the root path if it does not exist
             Directory.CreateDirectory(AlgorithmStorageRoot);
 
             Log.Trace($"LocalObjectStore.Initialize(): Storage Root: {new FileInfo(AlgorithmStorageRoot).FullName}");
 
-            foreach (var file in Directory.EnumerateFiles(AlgorithmStorageRoot))
-            {
-                var contents = File.ReadAllBytes(file);
-                _storage[Path.GetFileName(file)] = contents;
-            }
-
             Controls = controls;
 
-            _persistenceInterval = TimeSpan.FromSeconds(controls.PersistenceIntervalSeconds);
-            _persistenceTimer = new Timer(_ => Persist(), null, _persistenceInterval, _persistenceInterval);
+            // Load in any already existing objects in the storage directory
+            LoadExistingObjects();
+
+            // if <= 0 we disable periodic persistence and make it synchronous
+            if (Controls.PersistenceIntervalSeconds > 0)
+            {
+                _persistenceInterval = TimeSpan.FromSeconds(Controls.PersistenceIntervalSeconds);
+                _persistenceTimer = new Timer(_ => Persist(), null, _persistenceInterval, _persistenceInterval);
+            }
+        }
+
+        /// <summary>
+        /// Loads objects from the AlgorithmStorageRoot into the ObjectStore
+        /// </summary>
+        protected virtual void LoadExistingObjects()
+        {
+            if (Controls.StoragePermissions.HasFlag(FileAccess.Read))
+            {
+                foreach (var file in Directory.EnumerateFiles(AlgorithmStorageRoot))
+                {
+                    // Read the contents of the file and decode the filename to get our key
+                    var contents = File.ReadAllBytes(file);
+                    var key = Base64ToKey(Path.GetFileName(file));
+                    _storage[key] = contents;
+                }
+            }
         }
 
         /// <summary>
@@ -100,6 +131,10 @@ namespace QuantConnect.Lean.Engine.Storage
             {
                 throw new ArgumentNullException(nameof(key));
             }
+            if (!Controls.StoragePermissions.HasFlag(FileAccess.Read))
+            {
+                throw new InvalidOperationException($"LocalObjectStore.ContainsKey(): {NoReadPermissionsError}");
+            }
 
             return _storage.ContainsKey(key);
         }
@@ -111,18 +146,16 @@ namespace QuantConnect.Lean.Engine.Storage
         /// <returns>A byte array containing the data</returns>
         public byte[] ReadBytes(string key)
         {
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
-
-            byte[] data;
-            if (!_storage.TryGetValue(key, out data))
+            // Ensure we have the key, also takes care of null or improper access
+            if (!ContainsKey(key))
             {
                 throw new KeyNotFoundException($"Object with key '{key}' was not found in the current project. " +
                     "Please use ObjectStore.ContainsKey(key) to check if an object exists before attempting to read."
                 );
             }
+
+            byte[] data;
+            _storage.TryGetValue(key, out data);
 
             return data;
         }
@@ -139,37 +172,72 @@ namespace QuantConnect.Lean.Engine.Storage
             {
                 throw new ArgumentNullException(nameof(key));
             }
+            if (key.Contains("?"))
+            {
+                throw new ArgumentException($"LocalObjectStore.SaveBytes(): char '?' is not supported in the key {key}");
+            }
+            if (!Controls.StoragePermissions.HasFlag(FileAccess.Write))
+            {
+                throw new InvalidOperationException($"LocalObjectStore.SaveBytes(): {NoWritePermissionsError}");
+            }
 
-            var fileCount = 0;
-            var expectedStorageSizeBytes = 0L;
+            if (InternalSaveBytes(key, contents))
+            {
+                _dirty = true;
+                // if <= 0 we disable periodic persistence and make it synchronous
+                if (Controls.PersistenceIntervalSeconds <= 0)
+                {
+                    Persist();
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Won't trigger persist nor will check storage write permissions, useful on initialization since it allows read only permissions to load the object store
+        /// </summary>
+        protected bool InternalSaveBytes(string key, byte[] contents)
+        {
+            // Before saving confirm we are abiding by the control rules
+            // Start by counting our file and its length
+            var fileCount = 1;
+            var expectedStorageSizeBytes = contents.Length;
             foreach (var kvp in _storage)
             {
-                fileCount++;
-                if (string.Equals(kvp.Key, key))
+                if (key.Equals(kvp.Key))
                 {
-                    // we use the New content size
-                    expectedStorageSizeBytes += contents.Length;
+                    // Skip we have already counted this above
+                    // If this key was already in storage it will be replaced.
                 }
                 else
                 {
+                    fileCount++;
                     expectedStorageSizeBytes += kvp.Value.Length;
                 }
             }
 
+            // Verify we are within FileCount limit
             if (fileCount > Controls.StorageFileCount)
             {
-                Log.Error($"LocaObjectStore at file capacity: {fileCount}. Unable to save: '{key}'");
+                var message = $"LocalObjectStore.InternalSaveBytes(): at file capacity: {fileCount}. Unable to save: '{key}'";
+                Log.Error(message);
+                OnErrorRaised(new StorageLimitExceededException(message));
                 return false;
             }
 
+            // Verify we are within Storage limit
             var expectedStorageSizeMb = BytesToMb(expectedStorageSizeBytes);
             if (expectedStorageSizeMb > Controls.StorageLimitMB)
             {
-                Log.Error($"LocalObjectStore at storage capacity: {expectedStorageSizeMb}. Unable to save: '{key}'");
+                var message = $"LocalObjectStore.InternalSaveBytes(): at storage capacity: {expectedStorageSizeMb}MB/{Controls.StorageLimitMB}MB. Unable to save: '{key}'";
+                Log.Error(message);
+                OnErrorRaised(new StorageLimitExceededException(message));
                 return false;
             }
 
-            _dirty = true;
+            // Add the entry
             _storage.AddOrUpdate(key, k => contents, (k, v) => contents);
             return true;
         }
@@ -185,11 +253,21 @@ namespace QuantConnect.Lean.Engine.Storage
             {
                 throw new ArgumentNullException(nameof(key));
             }
+            if (!Controls.StoragePermissions.HasFlag(FileAccess.Write))
+            {
+                throw new InvalidOperationException($"LocalObjectStore.Delete(): {NoWritePermissionsError}");
+            }
 
             byte[] _;
             if (_storage.TryRemove(key, out _))
             {
                 _dirty = true;
+
+                // if <= 0 we disable periodic persistence and make it synchronous
+                if (Controls.PersistenceIntervalSeconds <= 0)
+                {
+                    Persist();
+                }
                 return true;
             }
 
@@ -201,21 +279,21 @@ namespace QuantConnect.Lean.Engine.Storage
         /// </summary>
         /// <param name="key">The object key</param>
         /// <returns>The path for the file</returns>
-        public string GetFilePath(string key)
+        public virtual string GetFilePath(string key)
         {
-            if (key == null)
+            // Ensure we have an object for that key
+            if (!ContainsKey(key))
             {
-                throw new ArgumentNullException(nameof(key));
+                throw new KeyNotFoundException($"Object with key '{key}' was not found in the current project. " +
+                    "Please use ObjectStore.ContainsKey(key) to check if an object exists before attempting to read."
+                );
             }
 
-            // read from RAM
-            var contents = ReadBytes(key);
+            // Persist to ensure pur files are up to date
+            Persist();
 
-            // write byte array to storage directory
-            var path = Path.Combine(AlgorithmStorageRoot, $"{key.ToMD5()}.dat");
-            File.WriteAllBytes(path, contents);
-
-            return path;
+            // Fetch the path to file and return it
+            return PathForKey(key);
         }
 
         /// <summary>
@@ -225,14 +303,17 @@ namespace QuantConnect.Lean.Engine.Storage
         {
             try
             {
-                _persistenceTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                if (_persistenceTimer != null)
+                {
+                    _persistenceTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-                Persist();
+                    Persist();
 
-                _persistenceTimer?.DisposeSafely();
+                    _persistenceTimer.DisposeSafely();
+                }
 
-                // if the object store was not used, delete the empty storage directory created in Initialize
-                if (!Directory.EnumerateFileSystemEntries(AlgorithmStorageRoot).Any())
+                // if the object store was not used, delete the empty storage directory created in Initialize.
+                if (AlgorithmStorageRoot != null && !Directory.GetFileSystemEntries(AlgorithmStorageRoot).Any())
                 {
                     Directory.Delete(AlgorithmStorageRoot);
                 }
@@ -260,36 +341,52 @@ namespace QuantConnect.Lean.Engine.Storage
         }
 
         /// <summary>
+        /// Get's a file path for a given key.
+        /// Internal use only because it does not guarantee the existence of the file.
+        /// </summary>
+        protected string PathForKey(string key)
+        {
+            // We use an encoded filename because certain keys will cause problems with persisting
+            // data to a file; we use Base64 because it allow us to use all chars except '?' in our
+            // key, this is because '?' in the right place will output '/' which will break during
+            // persist
+            return Path.Combine(AlgorithmStorageRoot, $"{KeyToBase64(key)}");
+        }
+
+        /// <summary>
         /// Invoked periodically to persist the object store's contents
         /// </summary>
         private void Persist()
         {
-            if (!_dirty)
+            // Acquire the persist lock
+            lock (_persistLock)
             {
-                return;
-            }
-
-            try
-            {
-
-                // pause timer will persisting
-                _persistenceTimer.Change(Timeout.Infinite, Timeout.Infinite);
-
-                if (PersistData(this))
+                // If there are no changes we are fine
+                if (!_dirty)
                 {
-                    _dirty = false;
+                    return;
                 }
 
-            }
-            catch (Exception err)
-            {
-                Log.Error("LocalObjectStore.Persist()", err);
-                OnErrorRaised(err);
-            }
-            finally
-            {
-                // restart timer following end of persistence
-                _persistenceTimer.Change(_persistenceInterval, _persistenceInterval);
+                try
+                {
+                    // Pause timer while persisting
+                    _persistenceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+                    if (PersistData(this))
+                    {
+                        _dirty = false;
+                    }
+                }
+                catch (Exception err)
+                {
+                    Log.Error("LocalObjectStore.Persist()", err);
+                    OnErrorRaised(err);
+                }
+                finally
+                {
+                    // restart timer following end of persistence
+                    _persistenceTimer?.Change(_persistenceInterval, _persistenceInterval);
+                }
             }
         }
 
@@ -302,15 +399,27 @@ namespace QuantConnect.Lean.Engine.Storage
         {
             try
             {
+                // Delete any files that are no longer saved in the store
+                foreach (var filepath in Directory.EnumerateFiles(AlgorithmStorageRoot))
+                {
+                    var filename = Path.GetFileName(filepath);
+                    if (!_storage.ContainsKey(Base64ToKey(filename)))
+                    {
+                        File.Delete(filepath);
+                    }
+                }
+
+                // Write all our store data to disk
                 foreach (var kvp in data)
                 {
-                    var path = Path.Combine(AlgorithmStorageRoot, kvp.Key);
+                    // Get a path for this key and write to it
+                    var path = PathForKey(kvp.Key);
                     File.WriteAllBytes(path, kvp.Value);
                 }
 
                 return true;
             }
-            catch (Exception err)
+            catch (Exception err) 
             {
                 Log.Error("LocalObjectStore.PersistData()", err);
                 OnErrorRaised(err);
@@ -332,6 +441,28 @@ namespace QuantConnect.Lean.Engine.Storage
         private static double BytesToMb(long bytes)
         {
             return bytes / 1024.0 / 1024.0;
+        }
+
+        /// <summary>
+        /// Convert a given key to a Base64 string
+        /// </summary>
+        /// <param name="key">Key to be encoded</param>
+        /// <returns>Base64 hash string</returns>
+        private static string KeyToBase64(string key)
+        {
+            var textAsBytes = Encoding.UTF8.GetBytes(key);
+            return Convert.ToBase64String(textAsBytes);
+        }
+
+        /// <summary>
+        /// Convert a given Base64 string back to a key
+        /// </summary>
+        /// <param name="hash">Hash to be decoded</param>
+        /// <returns>Key string</returns>
+        private static string Base64ToKey(string hash)
+        {
+            var textAsBytes = Convert.FromBase64String(hash);
+            return Encoding.UTF8.GetString(textAsBytes);
         }
     }
 }

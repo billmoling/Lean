@@ -219,14 +219,14 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             var model = new TestFillModelInheritBaseClass();
             var result = model.Fill(
                 new FillModelParameters(_security,
-                    new StopLimitOrder(_security.Symbol, 1, 1, 1, orderDateTime),
+                    new StopLimitOrder(_security.Symbol, 1, 12344, 12346, orderDateTime),
                     new MockSubscriptionDataConfigProvider(_config),
                     Time.OneHour));
 
             Assert.True(model.StopLimitFillWasCalled);
             Assert.IsNotNull(result);
             Assert.True(model.GetPricesWasCalled);
-            Assert.AreEqual(1, result.OrderEvent.FillPrice);
+            Assert.AreEqual(12345, result.OrderEvent.FillPrice);
         }
 
         [Test]
@@ -249,7 +249,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
         public void OldBaseFillModel_MarketOnOpenFill()
         {
             var model = new TestFillModelInheritBaseClass();
-            _security.SetMarketPrice(new Tick(orderDateTime, _security.Symbol, 88, 88));
+            _security.SetMarketPrice(new Tick(orderDateTime, _security.Symbol, 88, 88) {TickType = TickType.Trade});
 
             var result = model.Fill(
                 new FillModelParameters(_security,

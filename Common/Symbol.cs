@@ -16,6 +16,7 @@
 
 using System;
 using Newtonsoft.Json;
+using ProtoBuf;
 using static QuantConnect.StringExtensions;
 
 namespace QuantConnect
@@ -26,6 +27,7 @@ namespace QuantConnect
     /// the SID is constant over the life of a security
     /// </summary>
     [JsonConverter(typeof(SymbolJsonConverter))]
+    [ProtoContract(SkipConstructor = true)]
     public sealed class Symbol : IEquatable<Symbol>, IComparable
     {
         // for performance we register how we compare with empty
@@ -161,7 +163,7 @@ namespace QuantConnect
 
             if (expiry == SecurityIdentifier.DefaultDate)
             {
-                alias = alias ?? "?" + underlyingSymbol.Value.LazyToUpper();
+                alias = alias ?? $"?{underlyingSymbol.Value.LazyToUpper()}";
             }
             else
             {
@@ -238,11 +240,13 @@ namespace QuantConnect
         /// <summary>
         /// Gets the current symbol for this ticker
         /// </summary>
+        [ProtoMember(1)]
         public string Value { get; private set; }
 
         /// <summary>
         /// Gets the security identifier for this symbol
         /// </summary>
+        [ProtoMember(2)]
         public SecurityIdentifier ID { get; private set; }
 
         /// <summary>
@@ -257,6 +261,7 @@ namespace QuantConnect
         /// <summary>
         /// Gets the security underlying symbol, if any
         /// </summary>
+        [ProtoMember(3)]
         public Symbol Underlying { get; private set; }
 
 
@@ -515,7 +520,7 @@ namespace QuantConnect
                 return new Symbol(sid, sid.Symbol);
             }
 
-            return Empty;
+            return new Symbol(new SecurityIdentifier(ticker, 0), ticker);
         }
 
         #endregion

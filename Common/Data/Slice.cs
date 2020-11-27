@@ -45,7 +45,7 @@ namespace QuantConnect.Data
         // string -> list{data} for tick data
         private readonly Lazy<DataDictionary<SymbolData>> _data;
         // Quandl -> DataDictonary<Quandl>
-        private readonly Dictionary<Type, object> _dataByType;
+        private Dictionary<Type, object> _dataByType;
 
         /// <summary>
         /// Gets the timestamp for this slice of data
@@ -262,8 +262,6 @@ namespace QuantConnect.Data
         {
             Time = time;
 
-            _dataByType = new Dictionary<Type, object>();
-
             // market data
             _data = new Lazy<DataDictionary<SymbolData>>(() => CreateDynamicDataDictionary(data));
 
@@ -330,10 +328,17 @@ namespace QuantConnect.Data
         /// <remarks>Supports both C# and Python use cases</remarks>
         protected static dynamic GetImpl(Type type, Slice instance)
         {
+            if (instance._dataByType == null)
+            {
+                // for performance we only really create this collection if someone used it
+                instance._dataByType = new Dictionary<Type, object>(1);
+            }
+
             object dictionary;
             if (!instance._dataByType.TryGetValue(type, out dictionary))
             {
-                if (type == typeof(Tick))
+                var requestedOpenInterest = type == typeof(OpenInterest);
+                if (type == typeof(Tick) || requestedOpenInterest)
                 {
                     var dataDictionaryCache = GenericDataDictionary.Get(type);
                     dictionary = Activator.CreateInstance(dataDictionaryCache.GenericType);
@@ -341,9 +346,13 @@ namespace QuantConnect.Data
                     foreach (var data in instance.Ticks)
                     {
                         var symbol = data.Key;
-                        var listOfTicks = data.Value;
-                        // preserving existing behavior we will return the last data point, users expect a 'DataDictionary<Tick> : IDictionary<Symbol, Tick>'
-                        var lastDataPoint = listOfTicks[listOfTicks.Count - 1];
+                        // preserving existing behavior we will return the last data point, users expect a 'DataDictionary<Tick> : IDictionary<Symbol, Tick>'.
+                        // openInterest is stored with the Ticks collection
+                        var lastDataPoint = data.Value.LastOrDefault(tick => requestedOpenInterest && tick.TickType == TickType.OpenInterest || !requestedOpenInterest && tick.TickType != TickType.OpenInterest);
+                        if (lastDataPoint == null)
+                        {
+                            continue;
+                        }
                         dataDictionaryCache.MethodInfo.Invoke(dictionary, new object[] { symbol, lastDataPoint });
                     }
                 }
@@ -443,6 +452,11 @@ namespace QuantConnect.Data
             var allData = new DataDictionary<SymbolData>();
             foreach (var datum in data)
             {
+                // we only will cache the default data type to preserve determinism and backwards compatibility
+                if (!SubscriptionManager.IsDefaultDataType(datum))
+                {
+                    continue;
+                }
                 SymbolData symbolData;
                 if (!allData.TryGetValue(datum.Symbol, out symbolData))
                 {

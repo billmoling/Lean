@@ -64,6 +64,7 @@ namespace QuantConnect.Lean.Launcher
             var environment = Config.Get("environment");
             var liveMode = Config.GetBool("live-mode");
             Log.DebuggingEnabled = Config.GetBool("debug-mode");
+            Log.FilePath = Path.Combine(Config.Get("results-destination-folder"), "log.txt");
             Log.LogHandler = Composer.Instance.GetExportedValueByTypeName<ILogHandler>(Config.Get("log-handler", "CompositeLogHandler"));
 
             //Name thread for the profiler:

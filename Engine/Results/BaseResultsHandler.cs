@@ -22,11 +22,12 @@ using System.Linq;
 using System.Threading;
 using Newtonsoft.Json;
 using QuantConnect.Configuration;
+using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Interfaces;
-using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.TransactionHandlers;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
+using QuantConnect.Orders.Serialization;
 using QuantConnect.Packets;
 using QuantConnect.Statistics;
 
@@ -37,6 +38,20 @@ namespace QuantConnect.Lean.Engine.Results
     /// </summary>
     public abstract class BaseResultsHandler
     {
+        // used for resetting out/error upon completion
+        private static readonly TextWriter StandardOut = Console.Out;
+        private static readonly TextWriter StandardError = Console.Error;
+
+        /// <summary>
+        /// The main loop update interval
+        /// </summary>
+        protected TimeSpan MainUpdateInterval = TimeSpan.FromSeconds(3);
+
+        /// <summary>
+        /// The chart update interval
+        /// </summary>
+        protected TimeSpan ChartUpdateInterval = TimeSpan.FromMinutes(1);
+
         /// <summary>
         /// The last position consumed from the <see cref="ITransactionHandler.OrderEvents"/> by <see cref="GetDeltaOrders"/>
         /// </summary>
@@ -89,6 +104,16 @@ namespace QuantConnect.Lean.Engine.Results
         protected object ChartLock { get; }
 
         /// <summary>
+        /// The algorithm project id
+        /// </summary>
+        protected int ProjectId { get; set; }
+
+        /// <summary>
+        /// The maximum amount of RAM (in MB) this algorithm is allowed to utilize
+        /// </summary>
+        protected string RamAllocation { get; set; }
+
+        /// <summary>
         /// The algorithm unique compilation id
         /// </summary>
         protected string CompileId { get; set; }
@@ -131,11 +156,6 @@ namespace QuantConnect.Lean.Engine.Results
         protected IAlgorithm Algorithm { get; set; }
 
         /// <summary>
-        /// The data manager, used to access current subscriptions
-        /// </summary>
-        protected IDataFeedSubscriptionManager DataManager;
-
-        /// <summary>
         /// Gets or sets the current alpha runtime statistics
         /// </summary>
         protected AlphaRuntimeStatistics AlphaRuntimeStatistics { get; set; }
@@ -166,7 +186,12 @@ namespace QuantConnect.Lean.Engine.Results
         /// Directory location to store results
         /// </summary>
         protected string ResultsDestinationFolder;
-        
+
+        /// <summary>
+        /// The order event json converter instance to use
+        /// </summary>
+        protected OrderEventJsonConverter OrderEventJsonConverter { get; set; }
+
         /// <summary>
         /// Creates a new instance
         /// </summary>
@@ -192,6 +217,28 @@ namespace QuantConnect.Lean.Engine.Results
         }
 
         /// <summary>
+        /// Terminate the result thread and apply any required exit procedures like sending final results
+        /// </summary>
+        public virtual void Exit()
+        {
+            // reset standard out/error
+            Console.SetOut(StandardOut);
+            Console.SetError(StandardError);
+        }
+
+        /// <summary>
+        /// Gets the current Server statistics
+        /// </summary>
+        protected virtual Dictionary<string, string> GetServerStatistics(DateTime utcNow)
+        {
+            var serverStatistics = OS.GetServerStatistics();
+            var upTime = utcNow - StartTime;
+            serverStatistics["Up Time"] = $"{upTime.Days}d {upTime:hh\\:mm\\:ss}";
+            serverStatistics["Total RAM (MB)"] = RamAllocation;
+            return serverStatistics;
+        }
+
+        /// <summary>
         /// Stores the order events
         /// </summary>
         /// <param name="utcTime">The utc date associated with these order events</param>
@@ -203,8 +250,10 @@ namespace QuantConnect.Lean.Engine.Results
                 return;
             }
 
-            var path = $"{AlgorithmId}-order-events.json";
-            var data = JsonConvert.SerializeObject(orderEvents, Formatting.None);
+            var filename = $"{AlgorithmId}-order-events.json";
+            var path = GetResultsPath(filename);
+
+            var data = JsonConvert.SerializeObject(orderEvents, Formatting.None, OrderEventJsonConverter);
 
             File.WriteAllText(path, data);
         }
@@ -260,6 +309,9 @@ namespace QuantConnect.Lean.Engine.Results
             TransactionHandler = transactionHandler;
             CompileId = job.CompileId;
             AlgorithmId = job.AlgorithmId;
+            ProjectId = job.ProjectId;
+            RamAllocation = job.RamAllocation.ToStringInvariant();
+            OrderEventJsonConverter = new OrderEventJsonConverter(AlgorithmId);
             _updateRunner = new Thread(Run, 0) { IsBackground = true, Name = "Result Thread" };
             _updateRunner.Start();
         }
@@ -278,7 +330,14 @@ namespace QuantConnect.Lean.Engine.Results
         {
             return Path.Combine(ResultsDestinationFolder, filename);
         }
-        
+
+        /// <summary>
+        /// Event fired each time that we add/remove securities from the data feed
+        /// </summary>
+        public virtual void OnSecuritiesChanged(SecurityChanges changes)
+        {
+        }
+
         /// <summary>
         /// Returns the location of the logs
         /// </summary>
@@ -311,14 +370,6 @@ namespace QuantConnect.Lean.Engine.Results
         public virtual void SetAlphaRuntimeStatistics(AlphaRuntimeStatistics statistics)
         {
             AlphaRuntimeStatistics = statistics;
-        }
-
-        /// <summary>
-        /// Sets the current Data Manager instance
-        /// </summary>
-        public virtual void SetDataManager(IDataFeedSubscriptionManager dataManager)
-        {
-            DataManager = dataManager;
         }
 
         /// <summary>
@@ -356,9 +407,29 @@ namespace QuantConnect.Lean.Engine.Results
         protected abstract void StoreResult(Packet packet);
 
         /// <summary>
+        /// Gets the current portfolio value
+        /// </summary>
+        /// <remarks>Useful so that live trading implementation can freeze the returned value if there is no user exchange open
+        /// so we ignore extended market hours updates</remarks>
+        protected virtual decimal GetPortfolioValue()
+        {
+            return Algorithm.Portfolio.TotalPortfolioValue;
+        }
+
+        /// <summary>
+        /// Gets the current benchmark value
+        /// </summary>
+        /// <remarks>Useful so that live trading implementation can freeze the returned value if there is no user exchange open
+        /// so we ignore extended market hours updates</remarks>
+        protected virtual decimal GetBenchmarkValue()
+        {
+            return Algorithm.Benchmark.Evaluate(PreviousUtcSampleTime).SmartRounding();
+        }
+
+        /// <summary>
         /// Samples portfolio equity, benchmark, and daily performance
         /// </summary>
-        /// <param name="time">Current time in the AlgorithmManager loop</param>
+        /// <param name="time">Current UTC time in the AlgorithmManager loop</param>
         /// <param name="force">Force sampling of equity, benchmark, and performance to be </param>
         public virtual void Sample(DateTime time, bool force = false)
         {
@@ -372,11 +443,11 @@ namespace QuantConnect.Lean.Engine.Results
                     PreviousUtcSampleTime = time;
                 }
 
-                var currentPortfolioValue = Algorithm.Portfolio.TotalPortfolioValue;
+                var currentPortfolioValue = GetPortfolioValue();
                 var portfolioPerformance = DailyPortfolioValue == 0 ? 0 : Math.Round((currentPortfolioValue - DailyPortfolioValue) * 100 / DailyPortfolioValue, 10);
 
                 SampleEquity(PreviousUtcSampleTime, currentPortfolioValue);
-                SampleBenchmark(PreviousUtcSampleTime, Algorithm.Benchmark.Evaluate(PreviousUtcSampleTime).SmartRounding());
+                SampleBenchmark(PreviousUtcSampleTime, GetBenchmarkValue());
                 SamplePerformance(PreviousUtcSampleTime, portfolioPerformance);
 
                 // If the day changed, set the closing portfolio value. Otherwise, we would end up
@@ -387,6 +458,7 @@ namespace QuantConnect.Lean.Engine.Results
                 }
             }
 
+            // this time goes into the sample, we keep him updated because sample is called before we update anything, so the sampled values are from the last call
             PreviousUtcSampleTime = time;
         }
 
@@ -397,7 +469,9 @@ namespace QuantConnect.Lean.Engine.Results
         /// <param name="value">Current equity value.</param>
         protected virtual void SampleEquity(DateTime time, decimal value)
         {
-            Sample("Strategy Equity", "Equity", 0, SeriesType.Candle, time, value);
+            var accountCurrencySymbol = Currencies.GetCurrencySymbol(Algorithm.AccountCurrency);
+
+            Sample("Strategy Equity", "Equity", 0, SeriesType.Candle, time, value, accountCurrencySymbol);
         }
 
         /// <summary>
@@ -464,13 +538,15 @@ namespace QuantConnect.Lean.Engine.Results
                 runtimeStatistics["Probabilistic Sharpe Ratio"] = "0%";
             }
 
-            runtimeStatistics["Unrealized"] = "$" + Algorithm.Portfolio.TotalUnrealizedProfit.ToStringInvariant("N2");
-            runtimeStatistics["Fees"] = "-$" + Algorithm.Portfolio.TotalFees.ToStringInvariant("N2");
-            runtimeStatistics["Net Profit"] = "$" + Algorithm.Portfolio.TotalProfit.ToStringInvariant("N2");
+            var accountCurrencySymbol = Currencies.GetCurrencySymbol(Algorithm.AccountCurrency);
+
+            runtimeStatistics["Unrealized"] = accountCurrencySymbol + Algorithm.Portfolio.TotalUnrealizedProfit.ToStringInvariant("N2");
+            runtimeStatistics["Fees"] = $"-{accountCurrencySymbol}{Algorithm.Portfolio.TotalFees.ToStringInvariant("N2")}";
+            runtimeStatistics["Net Profit"] = accountCurrencySymbol + Algorithm.Portfolio.TotalProfit.ToStringInvariant("N2");
             runtimeStatistics["Return"] = GetNetReturn().ToStringInvariant("P");
-            runtimeStatistics["Equity"] = "$" + Algorithm.Portfolio.TotalPortfolioValue.ToStringInvariant("N2");
-            runtimeStatistics["Holdings"] = "$" + Algorithm.Portfolio.TotalHoldingsValue.ToStringInvariant("N2");
-            runtimeStatistics["Volume"] = "$" + Algorithm.Portfolio.TotalSaleVolume.ToStringInvariant("N2");
+            runtimeStatistics["Equity"] = accountCurrencySymbol + Algorithm.Portfolio.TotalPortfolioValue.ToStringInvariant("N2");
+            runtimeStatistics["Holdings"] = accountCurrencySymbol + Algorithm.Portfolio.TotalHoldingsValue.ToStringInvariant("N2");
+            runtimeStatistics["Volume"] = accountCurrencySymbol + Algorithm.Portfolio.TotalSaleVolume.ToStringInvariant("N2");
 
             return runtimeStatistics;
         }
@@ -519,6 +595,73 @@ namespace QuantConnect.Lean.Engine.Results
             }
 
             return statisticsResults;
+        }
+
+        /// <summary>
+        /// Save an algorithm message to the log store. Uses a different timestamped method of adding messaging to interweve debug and logging messages.
+        /// </summary>
+        /// <param name="message">String message to store</param>
+        protected abstract void AddToLogStore(string message);
+
+        /// <summary>
+        /// Processes algorithm logs.
+        /// Logs of the same type are batched together one per line and are sent out
+        /// </summary>
+        protected void ProcessAlgorithmLogs(int? messageQueueLimit = null)
+        {
+            ProcessAlgorithmLogsImpl(Algorithm.DebugMessages, PacketType.Debug, messageQueueLimit);
+            ProcessAlgorithmLogsImpl(Algorithm.ErrorMessages, PacketType.HandledError, messageQueueLimit);
+            ProcessAlgorithmLogsImpl(Algorithm.LogMessages, PacketType.Log, messageQueueLimit);
+        }
+
+        private void ProcessAlgorithmLogsImpl(ConcurrentQueue<string> concurrentQueue, PacketType packetType, int? messageQueueLimit = null)
+        {
+            if (concurrentQueue.Count <= 0)
+            {
+                return;
+            }
+
+            var result = new List<string>();
+            var endTime = DateTime.UtcNow.AddMilliseconds(250).Ticks;
+            string message;
+            var currentMessageCount = -1;
+            while (DateTime.UtcNow.Ticks < endTime && concurrentQueue.TryDequeue(out message))
+            {
+                if (messageQueueLimit.HasValue)
+                {
+                    if (currentMessageCount == -1)
+                    {
+                        // this is expensive, so let's get it once
+                        currentMessageCount = Messages.Count;
+                    }
+                    if (currentMessageCount > messageQueueLimit)
+                    {
+                        //if too many in the queue already skip the logging and drop the messages
+                        continue;
+                    }
+                }
+                AddToLogStore(message);
+                result.Add(message);
+                // increase count after we add
+                currentMessageCount++;
+            }
+
+            if (result.Count > 0)
+            {
+                message = string.Join(Environment.NewLine, result);
+                if (packetType == PacketType.Debug)
+                {
+                    Messages.Enqueue(new DebugPacket(ProjectId, AlgorithmId, CompileId, message));
+                }
+                else if (packetType == PacketType.Log)
+                {
+                    Messages.Enqueue(new LogPacket(AlgorithmId, message));
+                }
+                else if (packetType == PacketType.HandledError)
+                {
+                    Messages.Enqueue(new HandledErrorPacket(AlgorithmId, message));
+                }
+            }
         }
     }
 }

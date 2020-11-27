@@ -16,11 +16,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using QuantConnect.Configuration;
+using QuantConnect.Logging;
 using QuantConnect.ToolBox.AlgoSeekFuturesConverter;
 using QuantConnect.ToolBox.AlgoSeekOptionsConverter;
 using QuantConnect.ToolBox.Benzinga;
+using QuantConnect.ToolBox.BinanceDownloader;
 using QuantConnect.ToolBox.BitfinexDownloader;
 using QuantConnect.ToolBox.CoarseUniverseGenerator;
 using QuantConnect.ToolBox.CoinApiDataConverter;
@@ -38,7 +39,7 @@ using QuantConnect.ToolBox.KaikoDataConverter;
 using QuantConnect.ToolBox.KrakenDownloader;
 using QuantConnect.ToolBox.NseMarketDataConverter;
 using QuantConnect.ToolBox.OandaDownloader;
-using QuantConnect.ToolBox.PsychSignalDataConverter;
+using QuantConnect.ToolBox.Polygon;
 using QuantConnect.ToolBox.QuandlBitfinexDownloader;
 using QuantConnect.ToolBox.QuantQuoteConverter;
 using QuantConnect.ToolBox.RandomDataGenerator;
@@ -55,6 +56,10 @@ namespace QuantConnect.ToolBox
     {
         public static void Main(string[] args)
         {
+            Log.DebuggingEnabled = Config.GetBool("debug-mode");
+            Log.FilePath = Path.Combine(Config.Get("results-destination-folder"), "log.txt");
+            Log.LogHandler = Composer.Instance.GetExportedValueByTypeName<ILogHandler>(Config.Get("log-handler", "CompositeLogHandler"));
+
             var optionsObject = ToolboxArgumentParser.ParseArguments(args);
             if (optionsObject.Count == 0)
             {
@@ -66,9 +71,7 @@ namespace QuantConnect.ToolBox
             {
                 var fromDate = Parse.DateTimeExact(GetParameterOrExit(optionsObject, "from-date"), "yyyyMMdd-HH:mm:ss");
                 var resolution = optionsObject.ContainsKey("resolution") ? optionsObject["resolution"].ToString() : "";
-                var tickers = optionsObject.ContainsKey("tickers")
-                    ? (optionsObject["tickers"] as Dictionary<string, object>)?.Keys.ToList()
-                    : new List<string>();
+                var tickers = ToolboxArgumentParser.GetTickers(optionsObject);
                 var toDate = optionsObject.ContainsKey("to-date")
                     ? Parse.DateTimeExact(optionsObject["to-date"].ToString(), "yyyyMMdd-HH:mm:ss")
                     : DateTime.UtcNow;
@@ -100,7 +103,7 @@ namespace QuantConnect.ToolBox
                         break;
                     case "iexdl":
                     case "iexdownloader":
-                        IEXDownloaderProgram.IEXDownloader(tickers, resolution, fromDate, toDate, GetParameterOrExit(optionsObject, "api-key"));
+                        IEXDownloaderProgram.IEXDownloader(tickers, resolution, fromDate, toDate);
                         break;
                     case "iqfdl":
                     case "iqfeeddownloader":
@@ -126,6 +129,10 @@ namespace QuantConnect.ToolBox
                     case "bitfinexdownloader":
                         BitfinexDownloaderProgram.BitfinexDownloader(tickers, resolution, fromDate, toDate);
                         break;
+                    case "mbxdl":
+                    case "binancedownloader":
+                        BinanceDownloaderProgram.DataDownloader(tickers, resolution, fromDate, toDate);
+                        break;
                     case "secdl":
                     case "secdownloader":
                         SECDataDownloaderProgram.SECDataDownloader(
@@ -147,15 +154,6 @@ namespace QuantConnect.ToolBox
                         EstimizeReleaseDataDownloaderProgram.EstimizeReleaseDataDownloader();
                         break;
 
-                    case "psdl":
-                    case "psychsignaldownloader":
-                        PsychSignalDataConverterProgram.PsychSignalDataDownloader(
-                            fromDate,
-                            toDate,
-                            GetParameterOrDefault(optionsObject, "destination-dir", Path.Combine(Globals.DataFolder, "alternative", "psychsignal", "raw-psychsignal")),
-                            GetParameterOrExit(optionsObject, "api-key"),
-                            GetParameterOrDefault(optionsObject, "data-source", "twitter_enhanced_withretweets,stocktwits"));
-                        break;
                     case "ustycdl":
                     case "ustreasuryyieldcurvedownloader":
                         USTreasuryYieldCurveProgram.USTreasuryYieldCurveRateDownloader(
@@ -180,6 +178,30 @@ namespace QuantConnect.ToolBox
                         TradingEconomicsDataDownloader.TradingEconomicsCalendarDownloaderProgram.TradingEconomicsCalendarDownloader();
                         break;
 
+                    case "pdl":
+                    case "polygondownloader":
+                        PolygonDownloaderProgram.PolygonDownloader(
+                            tickers,
+                            GetParameterOrExit(optionsObject, "security-type"),
+                            GetParameterOrExit(optionsObject, "market"),
+                            resolution, 
+                            fromDate, 
+                            toDate);
+                        break;
+
+                    default:
+                        PrintMessageAndExit(1, "ERROR: Unrecognized --app value");
+                        break;
+                }
+            }
+            else if (targetApp.Contains("updater") || targetApp.EndsWith("spu"))
+            {
+                switch (targetApp)
+                {
+                    case "mbxspu":
+                    case "binancesymbolpropertiesupdater":
+                        BinanceDownloaderProgram.ExchangeInfoDownloader();
+                        break;
                     default:
                         PrintMessageAndExit(1, "ERROR: Unrecognized --app value");
                         break;
@@ -258,13 +280,6 @@ namespace QuantConnect.ToolBox
                             GetParameterOrDefault(optionsObject, "destination-dir", Globals.DataFolder),
                             start);
                         break;
-                    case "psdc":
-                    case "psychsignaldataconverter":
-                        PsychSignalDataConverterProgram.PsychSignalDataConverter(
-                            GetParameterOrExit(optionsObject, "date"),
-                            GetParameterOrExit(optionsObject, "source-dir"),
-                            GetParameterOrExit(optionsObject, "destination-dir"));
-                        break;
                     case "ustyccv":
                     case "ustreasuryyieldcurveconverter":
                         USTreasuryYieldCurveProgram.USTreasuryYieldCurveConverter(
@@ -281,9 +296,11 @@ namespace QuantConnect.ToolBox
                         break;
                     case "tiinc":
                     case "tiingonewsconverter":
+                        var date = GetParameterOrDefault(optionsObject, "date", null);
                         TiingoNewsConverterProgram.TiingoNewsConverter(
                             GetParameterOrExit(optionsObject, "source-dir"),
-                            GetParameterOrExit(optionsObject, "destination-dir"));
+                            GetParameterOrExit(optionsObject, "destination-dir"),
+                            date != null ? DateTime.ParseExact(date, "yyyyMMdd", CultureInfo.InvariantCulture) : (DateTime?) null);
                         break;
                     case "bzncv":
                     case "benzinganewsconverter":
@@ -333,5 +350,6 @@ namespace QuantConnect.ToolBox
 
             return value.ToString();
         }
+
     }
 }

@@ -21,6 +21,7 @@ using NUnit.Framework;
 using QuantConnect.Algorithm.CSharp;
 using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
+using QuantConnect.Logging;
 using QuantConnect.Packets;
 
 namespace QuantConnect.Tests.Common.Packets
@@ -28,6 +29,12 @@ namespace QuantConnect.Tests.Common.Packets
     [TestFixture]
     public class BacktestNodePacketTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            Log.DebuggingEnabled = false;
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -44,20 +51,20 @@ namespace QuantConnect.Tests.Common.Packets
                     {"Average Win", "0%"},
                     { "Average Loss", "0%"},
                     { "Compounding Annual Return", "17.560%"},
-                    { "Drawdown", "30.400%"},
+                    { "Drawdown", "30.300%"},
                     { "Expectancy", "0"},
                     { "Net Profit", "38.142%"},
-                    { "Sharpe Ratio", "0.681"},
+                    { "Sharpe Ratio", "0.682"},
                     { "Loss Rate", "0%"},
                     { "Win Rate", "0%"},
                     { "Profit-Loss Ratio", "0"},
-                    { "Alpha", "0.21"},
+                    { "Alpha", "0.209"},
                     { "Beta", "-0.136"},
                     { "Annual Standard Deviation", "0.272"},
                     { "Annual Variance", "0.074"},
-                    { "Information Ratio", "0.017"},
+                    { "Information Ratio", "0.018"},
                     { "Tracking Error", "0.422"},
-                    { "Treynor Ratio", "-1.359"},
+                    { "Treynor Ratio", "-1.363"},
                     { "Total Fees", "$6.62"} },
                 Language.CSharp,
                 AlgorithmStatus.Completed);
@@ -107,7 +114,7 @@ namespace QuantConnect.Tests.Common.Packets
                 endDate: new DateTime(2014, 03, 25));
         }
 
-        [Test]
+        [Test, Parallelizable(ParallelScope.Self)]
         public void RoundTripNullJobDates()
         {
             var job = new BacktestNodePacket(1, 2, "3", null, 9m, $"{nameof(BacktestNodePacketTests)}.Pepe");
@@ -126,7 +133,7 @@ namespace QuantConnect.Tests.Common.Packets
             Assert.AreEqual(job.Language, job2.Language);
         }
 
-        [Test]
+        [Test, Parallelizable(ParallelScope.Self)]
         public void RoundTripWithJobDates()
         {
             var job = new BacktestNodePacket(1, 2, "3", null, 9m, $"{nameof(BacktestNodePacketTests)}.Pepe");
@@ -140,7 +147,7 @@ namespace QuantConnect.Tests.Common.Packets
             Assert.AreEqual(job.PeriodFinish, job2.PeriodFinish);
         }
 
-        [Test]
+        [Test, Parallelizable(ParallelScope.Self)]
         public void RoundTripWithInitialCashAmount()
         {
             var job = new BacktestNodePacket(1, 2, "3", null, 9m, $"{nameof(BacktestNodePacketTests)}.Pepe");
@@ -152,7 +159,7 @@ namespace QuantConnect.Tests.Common.Packets
             Assert.AreEqual(job.CashAmount, job2.CashAmount);
         }
 
-        [Test]
+        [Test, Parallelizable(ParallelScope.Self)]
         public void RoundTripWithNullInitialCashAmount()
         {
             var job = new BacktestNodePacket(1, 2, "3", null, $"{nameof(BacktestNodePacketTests)}.Pepe");
@@ -171,22 +178,22 @@ namespace QuantConnect.Tests.Common.Packets
                     {"Total Trades", "1"},
                     {"Average Win", "0%"},
                     {"Average Loss", "0%"},
-                    {"Compounding Annual Return", "246.519%"},
+                    {"Compounding Annual Return", "246.584%"},
                     {"Drawdown", "1.100%"},
                     {"Expectancy", "0"},
-                    {"Net Profit", "3.463%"},
-                    {"Sharpe Ratio", "10.137"},
+                    {"Net Profit", "3.464%"},
+                    {"Sharpe Ratio", "10.117"},
                     {"Loss Rate", "0%"},
                     {"Win Rate", "0%"},
                     {"Profit-Loss Ratio", "0"},
-                    {"Alpha", "1.961"},
-                    {"Beta", "-0.128"},
-                    {"Annual Standard Deviation", "0.16"},
+                    {"Alpha", "1.939"},
+                    {"Beta", "-0.12"},
+                    {"Annual Standard Deviation", "0.161"},
                     {"Annual Variance", "0.026"},
-                    {"Information Ratio", "-4.535"},
+                    {"Information Ratio", "-4.537"},
                     {"Tracking Error", "0.221"},
-                    {"Treynor Ratio", "-12.638"},
-                    {"Total Fees", "$32.59"} // 10x times more than original BasicTemplateDailyAlgorithm
+                    {"Treynor Ratio", "-13.579"},
+                    {"Total Fees", "$32.60"} // 10x times more than original BasicTemplateDailyAlgorithm
                 },
                 Language.CSharp,
                 AlgorithmStatus.Completed);
@@ -207,22 +214,22 @@ namespace QuantConnect.Tests.Common.Packets
                     {"Total Trades", "1"},
                     {"Average Win", "0%"},
                     {"Average Loss", "0%"},
-                    {"Compounding Annual Return", "244.737%"},
+                    {"Compounding Annual Return", "214.981%"},
                     {"Drawdown", "1.100%"},
                     {"Expectancy", "0"},
-                    {"Net Profit", "3.463%"},
-                    {"Sharpe Ratio", "10.137"},
+                    {"Net Profit", "3.464%"},
+                    {"Sharpe Ratio", "9.066"},
                     {"Loss Rate", "0%"},
                     {"Win Rate", "0%"},
                     {"Profit-Loss Ratio", "0"},
-                    {"Alpha", "1.961"},
-                    {"Beta", "-0.128"},
-                    {"Annual Standard Deviation", "0.16"},
-                    {"Annual Variance", "0.026"},
-                    {"Information Ratio", "-4.535"},
-                    {"Tracking Error", "0.221"},
-                    {"Treynor Ratio", "-12.638"},
-                    {"Total Fees", "$32.59"} // 10x times more than original BasicTemplateDailyAlgorithm
+                    {"Alpha", "1.572"},
+                    {"Beta", "-0.086"},
+                    {"Annual Standard Deviation", "0.153"},
+                    {"Annual Variance", "0.023"},
+                    {"Information Ratio", "-3.867"},
+                    {"Tracking Error", "0.208"},
+                    {"Treynor Ratio", "-16.079"},
+                    {"Total Fees", "$32.60"} // 10x times more than original BasicTemplateDailyAlgorithm
                 },
                 Language.CSharp,
                 AlgorithmStatus.Completed);

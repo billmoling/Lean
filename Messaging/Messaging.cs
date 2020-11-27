@@ -22,6 +22,7 @@ using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Notifications;
+using QuantConnect.Orders.Serialization;
 using QuantConnect.Packets;
 using QuantConnect.Util;
 
@@ -35,6 +36,7 @@ namespace QuantConnect.Messaging
         private static readonly bool UpdateRegressionStatistics = Config.GetBool("regression-update-statistics", false);
 
         private AlgorithmNodePacket _job;
+        private OrderEventJsonConverter _orderEventJsonConverter;
 
         /// <summary>
         /// This implementation ignores the <seealso cref="HasSubscribers"/> flag and
@@ -60,6 +62,7 @@ namespace QuantConnect.Messaging
         public void SetAuthentication(AlgorithmNodePacket job)
         {
             _job = job;
+            _orderEventJsonConverter = new OrderEventJsonConverter(job.AlgorithmId);
         }
 
         /// <summary>
@@ -112,8 +115,11 @@ namespace QuantConnect.Messaging
                     {
                         // inject alpha statistics into backtesting result statistics
                         // this is primarily so we can easily regression test these values
-                        var alphaStatistics = result.Results.AlphaRuntimeStatistics?.ToDictionary().ToList() ?? new List<KeyValuePair<string, string>>();
-                        alphaStatistics.ForEach(kvp => result.Results.Statistics.Add(kvp));
+                        var alphaStatistics = result.Results.AlphaRuntimeStatistics?.ToDictionary() ?? Enumerable.Empty<KeyValuePair<string, string>>();
+                        foreach (var kvp in alphaStatistics)
+                        {
+                            result.Results.Statistics.Add(kvp);
+                        }
 
                         var orderHash = result.Results.Orders.GetHash();
                         result.Results.Statistics.Add("OrderListHash", orderHash.ToString(CultureInfo.InvariantCulture));
@@ -128,12 +134,6 @@ namespace QuantConnect.Messaging
                         Log.Trace(statisticsStr);
                     }
                     break;
-            }
-
-
-            if (StreamingApi.IsEnabled)
-            {
-                StreamingApi.Transmit(_job.UserId, _job.Channel, packet);
             }
         }
 

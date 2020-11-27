@@ -29,13 +29,13 @@ namespace QuantConnect.Tests.Common
     {
         private TimeMonitor _timeMonitor;
 
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public void Setup()
         {
             _timeMonitor = new TimeMonitor(monitorIntervalMs:3);
         }
 
-        [TestFixtureTearDown]
+        [OneTimeTearDown]
         public void TearDown()
         {
             _timeMonitor.DisposeSafely();
@@ -48,7 +48,13 @@ namespace QuantConnect.Tests.Common
             var consumeCompleted = new ManualResetEvent(false);
             var consumeStarted = new ManualResetEvent(false);
 
-            Action code = () => minuteElapsed.WaitOne();
+            Action code = () =>
+            {
+                if (!minuteElapsed.WaitOne(10000))
+                {
+                    throw new TimeoutException("minuteElapsed");
+                }
+            };
             var provider = new FakeIsolatorLimitResultProvider();
             var timeProvider = new ManualTimeProvider(new DateTime(2000, 01, 01));
 

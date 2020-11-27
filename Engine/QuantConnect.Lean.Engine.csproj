@@ -15,7 +15,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>QuantConnect.Lean.Engine</RootNamespace>
     <AssemblyName>QuantConnect.Lean.Engine</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
@@ -148,9 +148,6 @@
     <Reference Include="RestSharp, Version=106.6.10.0, Culture=neutral, PublicKeyToken=598062e77f915f75, processorArchitecture=MSIL">
       <HintPath>..\packages\RestSharp.106.6.10\lib\net452\RestSharp.dll</HintPath>
     </Reference>
-    <Reference Include="StringInterpolationBridge, Version=0.9.1.0, Culture=neutral, PublicKeyToken=761dcf67ba0bf74d, processorArchitecture=MSIL">
-      <HintPath>..\packages\StringInterpolationBridgeStrong.0.9.1\lib\net40\StringInterpolationBridge.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Data" />
@@ -170,6 +167,43 @@
     <Reference Include="System.Web" />
     <Reference Include="System.Xml" />
   </ItemGroup>
+  <PropertyGroup>
+    <IsWindows>false</IsWindows>
+    <IsWindows Condition="'$(OS)' == 'Windows_NT'">true</IsWindows>
+    <IsOSX>false</IsOSX>
+    <IsOSX Condition="'$(IsWindows)' != 'true' AND '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>
+    <IsLinux>false</IsLinux>
+    <IsLinux Condition="'$(IsWindows)' != 'true' AND '$(IsOSX)' != 'true' AND '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
+  </PropertyGroup>
+  <Target Name="PrintRID" BeforeTargets="Build">
+    <Message Text="IsWindows $(IsWindows)" Importance="high" />
+    <Message Text="IsOSX $(IsOSX)" Importance="high" />
+    <Message Text="IsLinux $(IsLinux)" Importance="high" />
+    <Message Text="ForceLinuxBuild $(ForceLinuxBuild)" Importance="high" />
+  </Target>
+  <Choose>
+    <When Condition="$(IsWindows) AND '$(ForceLinuxBuild)' != 'true'">
+      <ItemGroup>
+        <Reference Include="Python.Runtime, Version=1.0.5.30, Culture=neutral, processorArchitecture=MSIL">
+          <HintPath>..\packages\QuantConnect.pythonnet.1.0.5.30\lib\win\Python.Runtime.dll</HintPath>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(IsLinux) OR '$(ForceLinuxBuild)' == 'true'">
+      <ItemGroup>
+        <Reference Include="Python.Runtime, Version=1.0.5.30, Culture=neutral, processorArchitecture=MSIL">
+          <HintPath>..\packages\QuantConnect.pythonnet.1.0.5.30\lib\linux\Python.Runtime.dll</HintPath>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(IsOSX) AND '$(ForceLinuxBuild)' != 'true'">
+      <ItemGroup>
+        <Reference Include="Python.Runtime, Version=1.0.5.30, Culture=neutral, processorArchitecture=MSIL">
+          <HintPath>..\packages\QuantConnect.pythonnet.1.0.5.30\lib\osx\Python.Runtime.dll</HintPath>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
   <ItemGroup>
     <Compile Include="..\Common\Properties\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
@@ -178,6 +212,7 @@
     <Compile Include="AlgorithmTimeLimitManager.cs" />
     <Compile Include="Alphas\ChartingInsightManagerExtension.cs" />
     <Compile Include="Alphas\StatisticsInsightManagerExtension.cs" />
+    <Compile Include="DataFeeds\AggregationManager.cs" />
     <Compile Include="DataFeeds\ApiDataProvider.cs" />
     <Compile Include="DataFeeds\BacktestingFutureChainProvider.cs" />
     <Compile Include="DataFeeds\BacktestingOptionChainProvider.cs" />
@@ -186,7 +221,9 @@
     <Compile Include="DataFeeds\CachingOptionChainProvider.cs" />
     <Compile Include="DataFeeds\CurrencySubscriptionDataConfigManager.cs" />
     <Compile Include="DataFeeds\DataChannelProvider.cs" />
-    <Compile Include="DataFeeds\IDataChannelProvider.cs" />
+    <Compile Include="DataFeeds\DataPermissionManager.cs" />
+    <Compile Include="DataFeeds\Enumerators\ConcatEnumerator.cs" />
+    <Compile Include="DataFeeds\Enumerators\ScannableEnumerator.cs" />
     <Compile Include="DataFeeds\IndexSubscriptionDataSourceReader.cs" />
     <Compile Include="DataFeeds\DataManager.cs" />
     <Compile Include="DataFeeds\Enumerators\DelistingEventProvider.cs" />
@@ -206,12 +243,15 @@
     <Compile Include="DataFeeds\IDataFeedSubscriptionManager.cs" />
     <Compile Include="DataFeeds\IDataFeedTimeProvider.cs" />
     <Compile Include="DataFeeds\IDataManager.cs" />
+    <Compile Include="DataFeeds\InternalSubscriptionManager.cs" />
     <Compile Include="DataFeeds\ISubscriptionSynchronizer.cs" />
     <Compile Include="DataFeeds\ISynchronizer.cs" />
     <Compile Include="DataFeeds\LiveFutureChainProvider.cs" />
     <Compile Include="DataFeeds\LiveOptionChainProvider.cs" />
     <Compile Include="DataFeeds\NullDataFeed.cs" />
     <Compile Include="DataFeeds\PendingRemovalsManager.cs" />
+    <Compile Include="DataFeeds\WorkScheduling\IWorkQueue.cs" />
+    <Compile Include="DataFeeds\PrecalculatedSubscriptionData.cs" />
     <Compile Include="DataFeeds\WorkScheduling\WeightedWorkScheduler.cs" />
     <Compile Include="DataFeeds\RealTimeScheduleEventService.cs" />
     <Compile Include="DataFeeds\PredicateTimeProvider.cs" />
@@ -234,13 +274,10 @@
     <Compile Include="DataFeeds\Enumerators\LiveFillForwardEnumerator.cs" />
     <Compile Include="DataFeeds\Enumerators\FuturesChainUniverseDataCollectionAggregatorEnumerator.cs" />
     <Compile Include="DataFeeds\Enumerators\OptionChainUniverseDataCollectionEnumerator.cs" />
-    <Compile Include="DataFeeds\Enumerators\OpenInterestEnumerator.cs" />
     <Compile Include="DataFeeds\Enumerators\RateLimitEnumerator.cs" />
     <Compile Include="DataFeeds\Enumerators\RefreshEnumerator.cs" />
     <Compile Include="DataFeeds\Enumerators\SubscriptionFilterEnumerator.cs" />
     <Compile Include="DataFeeds\Enumerators\SynchronizingEnumerator.cs" />
-    <Compile Include="DataFeeds\Enumerators\QuoteBarBuilderEnumerator.cs" />
-    <Compile Include="DataFeeds\Enumerators\TradeBarBuilderEnumerator.cs" />
     <Compile Include="DataFeeds\DefaultDataProvider.cs" />
     <Compile Include="DataFeeds\ISubscriptionDataSourceReader.cs" />
     <Compile Include="DataFeeds\CollectionSubscriptionDataSourceReader.cs" />
@@ -306,6 +343,7 @@
     <Compile Include="Alphas\IAlphaHandler.cs" />
     <Compile Include="Setup\SetupHandlerParameters.cs" />
     <Compile Include="Storage\LocalObjectStore.cs" />
+    <Compile Include="Storage\StorageLimitExceededException.cs" />
     <Compile Include="TransactionHandlers\BacktestingTransactionHandler.cs" />
     <Compile Include="TransactionHandlers\BrokerageTransactionHandler.cs" />
     <Compile Include="TransactionHandlers\CancelPendingOrders.cs" />
@@ -400,7 +438,9 @@
     <Error Condition="!Exists('..\packages\Microsoft.NetCore.Analyzers.2.9.3\build\Microsoft.NetCore.Analyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.NetCore.Analyzers.2.9.3\build\Microsoft.NetCore.Analyzers.props'))" />
     <Error Condition="!Exists('..\packages\Microsoft.NetFramework.Analyzers.2.9.3\build\Microsoft.NetFramework.Analyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.NetFramework.Analyzers.2.9.3\build\Microsoft.NetFramework.Analyzers.props'))" />
     <Error Condition="!Exists('..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.3\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.3\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props'))" />
+    <Error Condition="!Exists('..\packages\QuantConnect.pythonnet.1.0.5.30\build\QuantConnect.pythonnet.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\QuantConnect.pythonnet.1.0.5.30\build\QuantConnect.pythonnet.targets'))" />
   </Target>
+  <Import Project="..\packages\QuantConnect.pythonnet.1.0.5.30\build\QuantConnect.pythonnet.targets" Condition="Exists('..\packages\QuantConnect.pythonnet.1.0.5.30\build\QuantConnect.pythonnet.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

@@ -275,9 +275,7 @@ namespace QuantConnect.Brokerages.Backtesting
                         continue;
                     }
 
-                    var fills = new[] { new OrderEvent(order,
-                        Algorithm.UtcTime,
-                        OrderFee.Zero) };
+                    var fills = new OrderEvent[0];
 
                     Security security;
                     if (!Algorithm.Securities.TryGetValue(order.Symbol, out security))
@@ -432,7 +430,7 @@ namespace QuantConnect.Brokerages.Backtesting
                             OnOrderEvent(fill);
                         }
 
-                        if (order.Type == OrderType.OptionExercise)
+                        if (fill.IsAssignment)
                         {
                             fill.Message = order.Tag;
                             OnOptionPositionAssigned(fill);
@@ -476,7 +474,8 @@ namespace QuantConnect.Brokerages.Backtesting
 
             _pendingOptionAssignments.Add(option.Symbol);
 
-            var request = new SubmitOrderRequest(OrderType.OptionExercise, option.Type, option.Symbol, -quantity, 0m, 0m, Algorithm.UtcTime, "Simulated option assignment before expiration");
+            // assignments always cause a positive change to option contract holdings
+            var request = new SubmitOrderRequest(OrderType.OptionExercise, option.Type, option.Symbol, Math.Abs(quantity), 0m, 0m, Algorithm.UtcTime, "Simulated option assignment before expiration");
 
             var ticket = Algorithm.Transactions.ProcessRequest(request);
             Log.Trace($"BacktestingBrokerage.ActivateOptionAssignment(): OrderId: {ticket.OrderId}");
@@ -519,8 +518,7 @@ namespace QuantConnect.Brokerages.Backtesting
         /// <returns></returns>
         private void SetPendingOrder(Order order)
         {
-            // only save off clones!
-            _pending[order.Id] = order.Clone();
+            _pending[order.Id] = order;
         }
     }
 }

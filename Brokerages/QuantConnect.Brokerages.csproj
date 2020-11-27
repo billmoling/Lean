@@ -14,7 +14,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>QuantConnect.Brokerages</RootNamespace>
     <AssemblyName>QuantConnect.Brokerages</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <LangVersion>6</LangVersion>
     <TargetFrameworkProfile />
@@ -136,9 +136,6 @@
     <Reference Include="IKVM.OpenJDK.XML.XPath, Version=8.1.5717.0, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
       <HintPath>..\packages\IKVM.8.1.5717.0\lib\IKVM.OpenJDK.XML.XPath.dll</HintPath>
     </Reference>
-    <Reference Include="IKVM.Reflection">
-      <HintPath>..\packages\IKVM-WithExes.7.3.4830.1\tools\IKVM.Reflection.dll</HintPath>
-    </Reference>
     <Reference Include="IKVM.Runtime, Version=8.1.5717.0, Culture=neutral, PublicKeyToken=13235d27fcbfff58, processorArchitecture=MSIL">
       <HintPath>..\packages\IKVM.8.1.5717.0\lib\IKVM.Runtime.dll</HintPath>
     </Reference>
@@ -159,36 +156,43 @@
       <HintPath>Fxcm\QuantConnect.Fxcm.dll</HintPath>
     </Reference>
     <Reference Include="QuantConnect.IBAutomater, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\QuantConnect.IBAutomater.1.0.20\lib\net45\QuantConnect.IBAutomater.exe</HintPath>
+      <HintPath>..\packages\QuantConnect.IBAutomater.1.0.31\lib\net45\QuantConnect.IBAutomater.exe</HintPath>
     </Reference>
     <Reference Include="RestSharp, Version=106.6.10.0, Culture=neutral, PublicKeyToken=598062e77f915f75, processorArchitecture=MSIL">
       <HintPath>..\packages\RestSharp.106.6.10\lib\net452\RestSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="StringInterpolationBridge, Version=0.9.1.0, Culture=neutral, PublicKeyToken=761dcf67ba0bf74d, processorArchitecture=MSIL">
-      <HintPath>..\packages\StringInterpolationBridgeStrong.0.9.1\lib\net40\StringInterpolationBridge.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Net.Http, Version=4.1.1.3, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Net.Http.4.3.4\lib\net46\System.Net.Http.dll</HintPath>
+    </Reference>
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security.Cryptography.Algorithms, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Algorithms.4.3.0\lib\net461\System.Security.Cryptography.Algorithms.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Encoding, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Encoding.4.3.0\lib\net46\System.Security.Cryptography.Encoding.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Primitives, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Primitives.4.3.0\lib\net46\System.Security.Cryptography.Primitives.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.X509Certificates, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.X509Certificates.4.3.0\lib\net461\System.Security.Cryptography.X509Certificates.dll</HintPath>
+    </Reference>
     <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="websocket-sharp, Version=1.0.4.0, Culture=neutral, PublicKeyToken=5660b08a1845a91e, processorArchitecture=MSIL">
-      <HintPath>..\packages\WebSocketSharpFork.1.0.4.0\lib\net35\websocket-sharp.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Common\Properties\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="Alpaca\AlpacaBrokerage.cs" />
-    <Compile Include="Alpaca\AlpacaBrokerage.DataQueueHandler.cs" />
     <Compile Include="Alpaca\AlpacaBrokerage.Utility.cs" />
     <Compile Include="Alpaca\AlpacaBrokerageFactory.cs" />
     <Compile Include="Alpaca\Markets\AlpacaTradingClient.cs" />
@@ -223,7 +227,6 @@
     <Compile Include="Alpaca\Markets\Enums\TimeInForce.cs" />
     <Compile Include="Alpaca\Markets\Enums\TradeConfirmEmail.cs" />
     <Compile Include="Alpaca\Markets\Enums\TradeEvent.cs" />
-    <Compile Include="Alpaca\Markets\Environment\EnvironmentExtensions.cs" />
     <Compile Include="Alpaca\Markets\Environment\Environments.cs" />
     <Compile Include="Alpaca\Markets\Environment\IEnvironment.cs" />
     <Compile Include="Alpaca\Markets\Environment\LiveEnvironment.cs" />
@@ -324,32 +327,45 @@
     <Compile Include="Alpaca\Markets\Parameters\ListOrdersRequest.cs" />
     <Compile Include="Alpaca\Markets\Parameters\NewOrderRequest.cs" />
     <Compile Include="Alpaca\Markets\Parameters\PolygonDataClientConfiguration.cs" />
-    <Compile Include="Alpaca\Markets\Parameters\PolygonStreamingClientConfiguration.cs" />
     <Compile Include="Alpaca\Markets\Parameters\PortfolioHistoryRequest.cs" />
-    <Compile Include="Alpaca\Markets\Parameters\StreamingClientConfiguration.cs" />
     <Compile Include="Alpaca\Markets\PolygonDataClient.cs" />
-    <Compile Include="Alpaca\Markets\PolygonStreamingClient.cs" />
     <Compile Include="Alpaca\Markets\RateThrottler.cs" />
     <Compile Include="Alpaca\Markets\SockClient.cs" />
     <Compile Include="Alpaca\Markets\ThrottleParameters.cs" />
-    <Compile Include="Alpaca\Markets\WebSocket\IWebSocket.cs" />
-    <Compile Include="Alpaca\Markets\WebSocket\IWebSocketFactory.cs" />
-    <Compile Include="Alpaca\Markets\WebSocket\StreamingClientBase.cs" />
-    <Compile Include="Alpaca\Markets\WebSocket\SynchronizationQueue.cs" />
-    <Compile Include="Alpaca\Markets\WebSocket\WebSocketSharpFactory.cs" />
     <Compile Include="Backtesting\BacktestingBrokerage.cs" />
     <Compile Include="Backtesting\BacktestingBrokerageFactory.cs" />
     <Compile Include="Backtesting\BasicOptionAssignmentSimulation.cs" />
     <Compile Include="Backtesting\IBacktestingMarketSimulation.cs" />
     <Compile Include="BaseWebsocketsBrokerage.cs" />
+    <Compile Include="Binance\BinanceBrokerage.Utility.cs" />
+    <Compile Include="Binance\BinanceBrokerage.cs" />
+    <Compile Include="Binance\BinanceBrokerageFactory.cs" />
+    <Compile Include="Binance\BinanceOrderSubmitEventArgs.cs" />
+    <Compile Include="Binance\BinanceRestApiClient.cs" />
+    <Compile Include="Binance\BinanceWebSocketWrapper.cs" />
+    <Compile Include="Binance\Messages.cs" />
     <Compile Include="Bitfinex\BitfinexBrokerage.Messaging.cs" />
     <Compile Include="Bitfinex\BitfinexBrokerage.cs" />
     <Compile Include="Bitfinex\BitfinexBrokerageFactory.cs" />
     <Compile Include="Bitfinex\BitfinexBrokerage.Utility.cs" />
     <Compile Include="Bitfinex\BitfinexSubscriptionManager.cs" />
+    <Compile Include="Bitfinex\BitfinexWebSocketChannels.cs" />
     <Compile Include="Bitfinex\BitfinexWebSocketWrapper.cs" />
-    <Compile Include="Bitfinex\Messages.cs" />
-    <Compile Include="Bitfinex\BitfinexSymbolMapper.cs" />
+    <Compile Include="Bitfinex\Messages\Messages.cs" />
+    <Compile Include="Bitfinex\Messages\Order.cs" />
+    <Compile Include="Bitfinex\Messages\Position.cs" />
+    <Compile Include="Bitfinex\Messages\Ticker.cs" />
+    <Compile Include="Bitfinex\Messages\TradeExecutionUpdate.cs" />
+    <Compile Include="Bitfinex\Messages\Wallet.cs" />
+    <Compile Include="Bitfinex\Converters\TradeExecutionUpdateConverter.cs" />
+    <Compile Include="Bitfinex\Converters\OrderConverter.cs" />
+    <Compile Include="Bitfinex\Messages\OrderFlags.cs" />
+    <Compile Include="Bitfinex\Converters\TickerConverter.cs" />
+    <Compile Include="Bitfinex\Converters\PositionConverter.cs" />
+    <Compile Include="Bitfinex\Converters\WalletConverter.cs" />
+    <Compile Include="InteractiveBrokers\Client\FamilyCodesEventArgs.cs" />
+    <Compile Include="InteractiveBrokers\Client\AccountSummaryEventArgs.cs" />
+    <Compile Include="InteractiveBrokers\Client\ManagedAccountsEventArgs.cs" />
     <Compile Include="InteractiveBrokers\InteractiveBrokersStateManager.cs" />
     <Compile Include="IOrderBookUpdater.cs" />
     <Compile Include="DefaultOrderBook.cs" />
@@ -375,81 +391,36 @@
     <Compile Include="IWebSocket.cs" />
     <Compile Include="GDAX\Messages.cs" />
     <Compile Include="ApiPriceProvider.cs" />
+    <Compile Include="SymbolPropertiesDatabaseSymbolMapper.cs" />
     <Compile Include="WebSocketCloseData.cs" />
     <Compile Include="WebSocketError.cs" />
     <Compile Include="WebSocketMessage.cs" />
-    <Compile Include="WebSocketWrapper.cs" />
+    <Compile Include="WebSocketClientWrapper.cs" />
     <Compile Include="InteractiveBrokers\Client\AccountDownloadEndEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\AccountSummaryEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\ActionSide.cs" />
     <Compile Include="InteractiveBrokers\Client\AgentDescription.cs" />
     <Compile Include="InteractiveBrokers\Client\BarSize.cs" />
-    <Compile Include="InteractiveBrokers\Client\HistogramDataEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\HeadTimestampEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\PnlSingleEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\PnlEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\MarketRuleEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\RerouteMktDepthReqEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\RerouteMktDataReqEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\HistoricalNewsEndEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\NewsProvidersEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\NewsArticleEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\HistoricalNewsEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\TickReqParamsEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\SmartComponentsEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\TickNewsEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\MktDepthExchangesEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\SymbolSamplesEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\FamilyCodesEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\HistoricalDataUpdateEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\OrderStatus.cs" />
     <Compile Include="InteractiveBrokers\Client\OrderType.cs" />
     <Compile Include="InteractiveBrokers\Client\RightType.cs" />
     <Compile Include="InteractiveBrokers\Client\SecurityType.cs" />
-    <Compile Include="InteractiveBrokers\Client\SoftDollarTiersEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\SecurityDefinitionOptionParameterEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\CommissionReportEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\ContractDetailsEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\CurrentTimeUtcEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\DeltaNeutralValidationEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\DisplayGroupUpdatedEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\ErrorEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\ExecutionDetailsEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\FundamentalDataEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\HistoricalDataEndEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\HistoricalDataEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\ManagedAccountsEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\MarketDataTypeEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\NextValidIdEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\OpenOrderEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\OrderStatusEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\PositionEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\AccountUpdateMultiEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\RealtimeBarEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\DisplayGroupListEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\PositionMultiEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\TimeInForce.cs" />
-    <Compile Include="InteractiveBrokers\Client\VerifyAndAuthCompletedEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\VerifyCompletedEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\VerifyAndAuthMessageApiEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\VerifyMessageApiEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\RequestEndEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\ReceiveFaEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\TickEfpEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\TickEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\TickGenericEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\TickOptionComputationEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\TickPriceEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\TickSizeEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\TickSnapshotEndEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\TickStringEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\UpdateAccountTimeEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\UpdateAccountValueEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\UpdateMarketDepthEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\UpdateMarketDepthLevel2EventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\UpdateNewsBulletinEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\ScannerParametersEventArgs.cs" />
-    <Compile Include="InteractiveBrokers\Client\ScannerDataEventArgs.cs" />
     <Compile Include="InteractiveBrokers\Client\UpdatePortfolioEventArgs.cs" />
     <Compile Include="InteractiveBrokers\FinancialAdvisor\Allocation.cs" />
     <Compile Include="InteractiveBrokers\FinancialAdvisor\AllocationProfile.cs" />
@@ -464,35 +435,8 @@
     <Compile Include="InteractiveBrokers\InteractiveBrokersSymbolMapper.cs" />
     <Compile Include="ISymbolMapper.cs" />
     <Compile Include="Oanda\OandaRestApiBase.cs" />
-    <Compile Include="Oanda\OandaRestApiV1.cs" />
     <Compile Include="Oanda\OandaRestApiV20.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Account.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Candle.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\AccountResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\AccountsResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\CandlesResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\InstrumentsResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\OrdersResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\PositionsResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\PostOrderResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\PricesResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\Requests\CandlesRequest.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\Requests\Request.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\Response.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\TradesResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Event.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Heartbeat.cs" />
-    <Compile Include="Oanda\RestV1\DataType\IHeartbeat.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Instrument.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Order.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Position.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Price.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Communications\RateStreamResponse.cs" />
-    <Compile Include="Oanda\RestV1\DataType\TradeData.cs" />
-    <Compile Include="Oanda\RestV1\DataType\Transaction.cs" />
     <Compile Include="Oanda\Environment.cs" />
-    <Compile Include="Oanda\RestV1\Framework\Common.cs" />
-    <Compile Include="Oanda\RestV1\Framework\EndpointResolver.cs" />
     <Compile Include="Oanda\OandaBrokerage.cs" />
     <Compile Include="Oanda\OandaBrokerageFactory.cs" />
     <Compile Include="Oanda\OandaSymbolMapper.cs" />
@@ -699,9 +643,6 @@
     <Compile Include="Oanda\RestV20\Session\StreamSession.cs" />
     <Compile Include="Oanda\RestV20\Session\TransactionStreamSession.cs" />
     <Compile Include="Oanda\Server.cs" />
-    <Compile Include="Oanda\RestV1\Session\EventsSession.cs" />
-    <Compile Include="Oanda\RestV1\Session\RatesSession.cs" />
-    <Compile Include="Oanda\RestV1\Session\StreamSession.cs" />
     <Compile Include="Paper\PaperBrokerage.cs" />
     <Compile Include="Paper\PaperBrokerageFactory.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -721,10 +662,10 @@
     <Compile Include="Tradier\UserProfile.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Binance\BinanceBrokerage.Messaging.cs" />
     <None Include="InteractiveBrokers\IB-symbol-map.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Oanda\RestV1\LICENSE.md" />
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>
@@ -776,9 +717,9 @@
     <Error Condition="!Exists('..\packages\Microsoft.NetCore.Analyzers.2.9.3\build\Microsoft.NetCore.Analyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.NetCore.Analyzers.2.9.3\build\Microsoft.NetCore.Analyzers.props'))" />
     <Error Condition="!Exists('..\packages\Microsoft.NetFramework.Analyzers.2.9.3\build\Microsoft.NetFramework.Analyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.NetFramework.Analyzers.2.9.3\build\Microsoft.NetFramework.Analyzers.props'))" />
     <Error Condition="!Exists('..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.3\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.CodeAnalysis.FxCopAnalyzers.2.9.3\build\Microsoft.CodeAnalysis.FxCopAnalyzers.props'))" />
-    <Error Condition="!Exists('..\packages\QuantConnect.IBAutomater.1.0.20\build\QuantConnect.IBAutomater.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\QuantConnect.IBAutomater.1.0.20\build\QuantConnect.IBAutomater.targets'))" />
+    <Error Condition="!Exists('..\packages\QuantConnect.IBAutomater.1.0.31\build\QuantConnect.IBAutomater.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\QuantConnect.IBAutomater.1.0.31\build\QuantConnect.IBAutomater.targets'))" />
   </Target>
-  <Import Project="..\packages\QuantConnect.IBAutomater.1.0.20\build\QuantConnect.IBAutomater.targets" Condition="Exists('..\packages\QuantConnect.IBAutomater.1.0.20\build\QuantConnect.IBAutomater.targets')" />
+  <Import Project="..\packages\QuantConnect.IBAutomater.1.0.31\build\QuantConnect.IBAutomater.targets" Condition="Exists('..\packages\QuantConnect.IBAutomater.1.0.31\build\QuantConnect.IBAutomater.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

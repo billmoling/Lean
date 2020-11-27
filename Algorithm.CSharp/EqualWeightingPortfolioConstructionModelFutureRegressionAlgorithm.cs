@@ -48,8 +48,8 @@ namespace QuantConnect.Algorithm.CSharp
         {
             return new []
             {
-                QuantConnect.Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.USA),
-                QuantConnect.Symbol.Create(Futures.Metals.Gold, SecurityType.Future, Market.USA)
+                QuantConnect.Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.CME),
+                QuantConnect.Symbol.Create(Futures.Metals.Gold, SecurityType.Future, Market.COMEX)
             };
         }
 
@@ -140,11 +140,11 @@ namespace QuantConnect.Algorithm.CSharp
             {"Loss Rate", "100%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "-13.366"},
-            {"Beta", "6.572"},
+            {"Alpha", "-13.685"},
+            {"Beta", "6.59"},
             {"Annual Standard Deviation", "1.632"},
             {"Annual Variance", "2.665"},
-            {"Information Ratio", "-1.992"},
+            {"Information Ratio", "-2.023"},
             {"Tracking Error", "1.441"},
             {"Treynor Ratio", "-0.15"},
             {"Total Fees", "$33.30"},
@@ -167,7 +167,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Mean Population Magnitude", "0%"},
             {"Rolling Averaged Population Direction", "25.058%"},
             {"Rolling Averaged Population Magnitude", "0%"},
-            {"OrderListHash", "936554980"}
+            {"OrderListHash", "-1105779454"}
         };
     }
 }

@@ -31,7 +31,7 @@ namespace QuantConnect.Tests.Common.Data
         private Dictionary<Language, dynamic> _weeklyFuncDictionary;
         private Dictionary<Language, dynamic> _monthlyFuncDictionary;
 
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public void SetUp()
         {
             _dailyFuncDictionary = new Dictionary<Language, dynamic> { { Language.CSharp, TimeSpan.FromDays(1) } };
@@ -46,7 +46,9 @@ namespace QuantConnect.Tests.Common.Data
 from datetime import timedelta
 from clr import AddReference
 AddReference('QuantConnect.Common')
-from QuantConnect.Data.Consolidators import CalendarInfo
+from QuantConnect import *
+from QuantConnect.Data import *
+from QuantConnect.Data.Consolidators import *
 oneday = timedelta(1)
 
 def Weekly(dt):

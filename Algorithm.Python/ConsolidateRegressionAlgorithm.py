@@ -22,7 +22,6 @@ from QuantConnect import *
 from QuantConnect.Algorithm import *
 from QuantConnect.Indicators import *
 from QuantConnect.Securities import *
-from QuantConnect.Data.Market import *
 from QuantConnect.Data.Consolidators import *
 from CustomDataRegressionAlgorithm import Bitcoin
 from datetime import timedelta
@@ -37,7 +36,7 @@ class ConsolidateRegressionAlgorithm(QCAlgorithm):
         self.SetStartDate(2013, 10, 8)
         self.SetEndDate(2013, 10, 9)
 
-        SP500 = Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.USA)
+        SP500 = Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.CME)
         self._symbol = _symbol = self.FutureChainProvider.GetFutureContractList(SP500, self.StartDate)[0]
         self.AddFutureContract(_symbol)
 

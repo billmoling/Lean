@@ -38,11 +38,11 @@ namespace QuantConnect.Algorithm.CSharp
 
         // S&P 500 EMini futures
         private const string RootSP500 = Futures.Indices.SP500EMini;
-        public Symbol SP500 = QuantConnect.Symbol.Create(RootSP500, SecurityType.Future, Market.USA);
+        public Symbol SP500 = QuantConnect.Symbol.Create(RootSP500, SecurityType.Future, Market.CME);
 
         // Gold futures
         private const string RootGold = Futures.Metals.Gold;
-        public Symbol Gold = QuantConnect.Symbol.Create(RootGold, SecurityType.Future, Market.USA);
+        public Symbol Gold = QuantConnect.Symbol.Create(RootGold, SecurityType.Future, Market.COMEX);
 
         /// <summary>
         /// Initialize your algorithm and add desired assets.
@@ -139,13 +139,13 @@ namespace QuantConnect.Algorithm.CSharp
             {"Loss Rate", "89%"},
             {"Win Rate", "11%"},
             {"Profit-Loss Ratio", "0.69"},
-            {"Alpha", "4.382"},
-            {"Beta", "-0.992"},
+            {"Alpha", "4.398"},
+            {"Beta", "-0.989"},
             {"Annual Standard Deviation", "0.373"},
             {"Annual Variance", "0.139"},
-            {"Information Ratio", "-12.762"},
-            {"Tracking Error", "0.503"},
-            {"Treynor Ratio", "1.008"},
+            {"Information Ratio", "-12.816"},
+            {"Tracking Error", "0.504"},
+            {"Treynor Ratio", "1.011"},
             {"Total Fees", "$15207.00"},
             {"Fitness Score", "0.033"},
             {"Kelly Criterion Estimate", "0"},
@@ -166,7 +166,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Mean Population Magnitude", "0%"},
             {"Rolling Averaged Population Direction", "0%"},
             {"Rolling Averaged Population Magnitude", "0%"},
-            {"OrderListHash", "1688092444"}
+            {"OrderListHash", "-1197265007"}
         };
     }
 }

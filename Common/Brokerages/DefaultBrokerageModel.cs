@@ -42,8 +42,8 @@ namespace QuantConnect.Brokerages
             {SecurityType.Base, Market.USA},
             {SecurityType.Equity, Market.USA},
             {SecurityType.Option, Market.USA},
-            {SecurityType.Future, Market.USA},
-            {SecurityType.Forex, Market.FXCM},
+            {SecurityType.Future, Market.CME},
+            {SecurityType.Forex, Market.Oanda},
             {SecurityType.Cfd, Market.FXCM},
             {SecurityType.Crypto, Market.GDAX}
         }.ToReadOnlyDictionary();
@@ -187,6 +187,28 @@ namespace QuantConnect.Brokerages
         /// <returns>The new fill model for this brokerage</returns>
         public virtual IFillModel GetFillModel(Security security)
         {
+            switch (security.Type)
+            {
+                case SecurityType.Base:
+                    break;
+                case SecurityType.Equity:
+                    return new EquityFillModel();
+                case SecurityType.Option:
+                    break;
+                case SecurityType.Commodity:
+                    break;
+                case SecurityType.Forex:
+                    break;
+                case SecurityType.Future:
+                    break;
+                case SecurityType.Cfd:
+                    break;
+                case SecurityType.Crypto:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException($"{GetType().Name}.GetFillModel: Invalid security type {security.Type}");
+            }
+
             return new ImmediateFillModel();
         }
 

@@ -17,6 +17,7 @@ using Newtonsoft.Json;
 using System;
 using System.Globalization;
 using System.IO;
+using QuantConnect.Logging;
 
 namespace QuantConnect.Data.Custom.SmartInsider
 {
@@ -130,7 +131,20 @@ namespace QuantConnect.Data.Custom.SmartInsider
             var tsv = line.Split('\t');
 
             TransactionID = string.IsNullOrWhiteSpace(tsv[0]) ? null : tsv[0];
-            EventType = string.IsNullOrWhiteSpace(tsv[1]) ? (SmartInsiderEventType?)null : JsonConvert.DeserializeObject<SmartInsiderEventType>($"\"{tsv[1]}\"");
+
+            EventType = SmartInsiderEventType.NotSpecified;
+            if (!string.IsNullOrWhiteSpace(tsv[1]))
+            {
+                try
+                {
+                    EventType = JsonConvert.DeserializeObject<SmartInsiderEventType>($"\"{tsv[1]}\"");
+                }
+                catch (JsonSerializationException)
+                {
+                    Log.Error($"SmartInsiderIntention.FromRawData: New unexpected entry found {tsv[1]}. Parsed as NotSpecified.");
+                }
+            }
+
             LastUpdate = DateTime.ParseExact(tsv[2], "yyyy-MM-dd", CultureInfo.InvariantCulture);
             LastIDsUpdate = string.IsNullOrWhiteSpace(tsv[3]) ? (DateTime?)null : DateTime.ParseExact(tsv[3], "yyyy-MM-dd", CultureInfo.InvariantCulture);
             ISIN = string.IsNullOrWhiteSpace(tsv[4]) ? null : tsv[4];
@@ -205,14 +219,10 @@ namespace QuantConnect.Data.Custom.SmartInsider
         /// <returns>Instance of the object</returns>
         public override BaseData Reader(SubscriptionDataConfig config, string line, DateTime date, bool isLiveMode)
         {
-            var intention = new SmartInsiderIntention(line)
+            return new SmartInsiderIntention(line)
             {
                 Symbol = config.Symbol
             };
-            // Files are made available at the earliest @ 17:00 U.K. time
-            intention.Time = intention.Time.AddHours(17).ConvertTo(TimeZones.London,config.DataTimeZone);
-
-            return intention;
         }
 
         /// <summary>
@@ -281,8 +291,9 @@ namespace QuantConnect.Data.Custom.SmartInsider
         public override string ToLine()
         {
             return string.Join("\t",
+                TimeProcessedUtc?.ToStringInvariant("yyyyMMdd HH:mm:ss"),
                 TransactionID,
-                JsonConvert.SerializeObject(EventType).Replace("\"", ""),
+                EventType == null ? null : JsonConvert.SerializeObject(EventType).Replace("\"", ""),
                 LastUpdate.ToStringInvariant("yyyyMMdd"),
                 LastIDsUpdate?.ToStringInvariant("yyyyMMdd"),
                 ISIN,
@@ -305,11 +316,10 @@ namespace QuantConnect.Data.Custom.SmartInsider
                 TimeReleased?.ToStringInvariant("yyyyMMdd HH:mm:ss"),
                 TimeProcessed?.ToStringInvariant("yyyyMMdd HH:mm:ss"),
                 TimeReleasedUtc?.ToStringInvariant("yyyyMMdd HH:mm:ss"),
-                TimeProcessedUtc?.ToStringInvariant("yyyyMMdd HH:mm:ss"),
                 AnnouncedIn,
-                JsonConvert.SerializeObject(Execution).Replace("\"", ""),
-                JsonConvert.SerializeObject(ExecutionEntity).Replace("\"", ""),
-                JsonConvert.SerializeObject(ExecutionHolding).Replace("\"", ""),
+                Execution == null ? null : JsonConvert.SerializeObject(Execution).Replace("\"", ""),
+                ExecutionEntity == null ? null : JsonConvert.SerializeObject(ExecutionEntity).Replace("\"", ""),
+                ExecutionHolding == null ? null : JsonConvert.SerializeObject(ExecutionHolding).Replace("\"", ""),
                 Amount,
                 ValueCurrency,
                 AmountValue,

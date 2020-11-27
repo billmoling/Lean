@@ -45,6 +45,7 @@ using QuantConnect.Algorithm.Framework.Execution;
 using QuantConnect.Algorithm.Framework.Portfolio;
 using QuantConnect.Algorithm.Framework.Risk;
 using QuantConnect.Algorithm.Framework.Selection;
+using QuantConnect.Algorithm.Selection;
 using QuantConnect.Storage;
 
 namespace QuantConnect.Algorithm
@@ -76,6 +77,11 @@ namespace QuantConnect.Algorithm
         /// Gets the market hours database in use by this algorithm
         /// </summary>
         protected MarketHoursDatabase MarketHoursDatabase { get; }
+
+        /// <summary>
+        /// Gets the symbol properties database in use by this algorithm
+        /// </summary>
+        protected SymbolPropertiesDatabase SymbolPropertiesDatabase { get; }
 
         // used for calling through to void OnData(Slice) if no override specified
         private bool _checkedForOnDataSlice;
@@ -139,6 +145,7 @@ namespace QuantConnect.Algorithm
 
             // get exchange hours loaded from the market-hours-database.csv in /Data/market-hours
             MarketHoursDatabase = MarketHoursDatabase.FromDataFolder();
+            SymbolPropertiesDatabase = SymbolPropertiesDatabase.FromDataFolder();
 
             // universe selection
             UniverseManager = new UniverseManager();
@@ -909,7 +916,7 @@ namespace QuantConnect.Algorithm
         /// Update the internal algorithm time frontier.
         /// </summary>
         /// <remarks>For internal use only to advance time.</remarks>
-        /// <param name="frontier">Current datetime.</param>
+        /// <param name="frontier">Current utc datetime.</param>
         public void SetDateTime(DateTime frontier)
         {
             _timeKeeper.SetUtcDateTime(frontier);
@@ -952,8 +959,19 @@ namespace QuantConnect.Algorithm
             // the time rules need to know the default time zone as well
             TimeRules.SetDefaultTimeZone(timeZone);
 
-            // reset the current time according to the time zone
-            SetDateTime(_startDate.ConvertToUtc(TimeZone));
+            // In BackTest mode we reset the Algorithm time to reflect the new timezone
+            // startDate is set by the user so we expect it to be for their timezone already
+            // so there is no need to update it.
+            if (!LiveMode)
+            {
+                SetDateTime(_startDate.ConvertToUtc(TimeZone));
+            }
+            // In live mode we need to adjust startDate to reflect the new timezone
+            // startDate is set by Lean to the default timezone (New York), so we must update it here
+            else
+            {
+                _startDate = DateTime.UtcNow.ConvertFromUtc(TimeZone).Date;
+            }
         }
 
         /// <summary>
@@ -1128,6 +1146,8 @@ namespace QuantConnect.Algorithm
                 throw new InvalidOperationException("Algorithm.SetAccountCurrency(): " +
                     "Cannot change AccountCurrency after algorithm initialized.");
             }
+
+            Debug($"Changing account currency from {AccountCurrency} to {accountCurrency}...");
 
             Portfolio.SetAccountCurrency(accountCurrency);
         }
@@ -1353,7 +1373,8 @@ namespace QuantConnect.Algorithm
                 Securities.SetLiveMode(live);
                 if (live)
                 {
-                    _startDate = DateTime.Today;
+                    // startDate is set relative to the algorithm's timezone.
+                    _startDate = DateTime.UtcNow.ConvertFromUtc(TimeZone).Date;
                     _endDate = QuantConnect.Time.EndOfTime;
                 }
             }
@@ -1437,17 +1458,68 @@ namespace QuantConnect.Algorithm
                     symbol = QuantConnect.Symbol.Create(ticker, securityType, market);
                 }
 
-                var configs = SubscriptionManager.SubscriptionDataConfigService.Add(symbol, resolution, fillDataForward, extendedMarketHours);
-                var security = Securities.CreateSecurity(symbol, configs, leverage);
-
-                AddToUserDefinedUniverse(security, configs);
-                return security;
+                return AddSecurity(symbol, resolution, fillDataForward, leverage, extendedMarketHours);
             }
             catch (Exception err)
             {
                 Error("Algorithm.AddSecurity(): " + err);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Set a required SecurityType-symbol and resolution for algorithm
+        /// </summary>
+        /// <param name="symbol">The security Symbol</param>
+        /// <param name="resolution">Resolution of the MarketType required: MarketData, Second or Minute</param>
+        /// <param name="fillDataForward">If true, returns the last available data even if none in that timeslice.</param>
+        /// <param name="leverage">leverage for this security</param>
+        /// <param name="extendedMarketHours">ExtendedMarketHours send in data from 4am - 8pm, not used for FOREX</param>
+        /// <returns></returns>
+        public Security AddSecurity(Symbol symbol, Resolution? resolution = null, bool fillDataForward = true, decimal leverage = Security.NullLeverage, bool extendedMarketHours = false)
+        {
+            var isCanonical = symbol.IsCanonical();
+
+            // Short-circuit to AddOptionContract because it will add the underlying if required
+            if (!isCanonical && symbol.SecurityType == SecurityType.Option)
+            {
+                return AddOptionContract(symbol, resolution, fillDataForward, leverage);
+            }
+
+            var configs = SubscriptionManager.SubscriptionDataConfigService.Add(symbol,
+                resolution,
+                fillDataForward,
+                extendedMarketHours,
+                isFilteredSubscription: !isCanonical);
+
+            var security = Securities.CreateSecurity(symbol, configs, leverage);
+
+            if (isCanonical)
+            {
+                security.IsTradable = false;
+                Securities.Add(security);
+
+                // add this security to the user defined universe
+                Universe universe;
+                if (!UniverseManager.TryGetValue(symbol, out universe) && _pendingUniverseAdditions.All(u => u.Configuration.Symbol != symbol))
+                {
+                    var settings = new UniverseSettings(configs.First().Resolution, leverage, true, false, TimeSpan.Zero);
+                    if (symbol.SecurityType == SecurityType.Option)
+                    {
+                        universe = new OptionChainUniverse((Option)security, settings, LiveMode);
+                    }
+                    else
+                    {
+                        universe = new FuturesChainUniverse((Future)security, settings);
+                    }
+
+                    AddUniverse(universe);
+                }
+                return security;
+            }
+
+            AddToUserDefinedUniverse(security, configs);
+            return security;
         }
 
         /// <summary>
@@ -1493,26 +1565,7 @@ namespace QuantConnect.Algorithm
                 canonicalSymbol = QuantConnect.Symbol.Create(underlying, SecurityType.Option, market, alias);
             }
 
-            var configs = SubscriptionManager.SubscriptionDataConfigService.Add(typeof(ZipEntryName),
-                canonicalSymbol,
-                resolution,
-                fillDataForward,
-                isFilteredSubscription: false);
-            var canonicalSecurity = (Option)Securities.CreateSecurity(canonicalSymbol, configs, leverage);
-
-            canonicalSecurity.IsTradable = false;
-            Securities.Add(canonicalSecurity);
-
-            // add this security to the user defined universe
-            Universe universe;
-            if (!UniverseManager.TryGetValue(canonicalSymbol, out universe) && _pendingUniverseAdditions.All(u => u.Configuration.Symbol != canonicalSymbol))
-            {
-                var settings = new UniverseSettings(configs.Resolution, leverage, true, false, TimeSpan.Zero);
-                universe = new OptionChainUniverse(canonicalSecurity, settings, LiveMode);
-                _pendingUniverseAdditions.Add(universe);
-            }
-
-            return canonicalSecurity;
+            return (Option)AddSecurity(canonicalSymbol, resolution, fillDataForward, leverage);
         }
 
         /// <summary>
@@ -1528,7 +1581,8 @@ namespace QuantConnect.Algorithm
         {
             if (market == null)
             {
-                if (!BrokerageModel.DefaultMarkets.TryGetValue(SecurityType.Future, out market))
+                if (!SymbolPropertiesDatabase.TryGetMarket(ticker, SecurityType.Future, out market)
+                    && !BrokerageModel.DefaultMarkets.TryGetValue(SecurityType.Future, out market))
                 {
                     throw new KeyNotFoundException($"No default market set for security type: {SecurityType.Future}");
                 }
@@ -1543,24 +1597,7 @@ namespace QuantConnect.Algorithm
                 canonicalSymbol = QuantConnect.Symbol.Create(ticker, SecurityType.Future, market, alias);
             }
 
-            var configs = SubscriptionManager.SubscriptionDataConfigService.Add(canonicalSymbol,
-                resolution,
-                fillDataForward,
-                isFilteredSubscription: false);
-            var canonicalSecurity = (Future)Securities.CreateSecurity(canonicalSymbol, configs, leverage);
-            canonicalSecurity.IsTradable = false;
-            Securities.Add(canonicalSecurity);
-
-            // add this security to the user defined universe
-            Universe universe;
-            if (!UniverseManager.TryGetValue(canonicalSymbol, out universe) && _pendingUniverseAdditions.All(u => u.Configuration.Symbol != canonicalSymbol))
-            {
-                var settings = new UniverseSettings(configs[0].Resolution, leverage, true, false, TimeSpan.Zero);
-                universe = new FuturesChainUniverse(canonicalSecurity, settings);
-                _pendingUniverseAdditions.Add(universe);
-            }
-
-            return canonicalSecurity;
+            return (Future)AddSecurity(canonicalSymbol, resolution, fillDataForward, leverage);
         }
 
         /// <summary>
@@ -1573,11 +1610,7 @@ namespace QuantConnect.Algorithm
         /// <returns>The new <see cref="Future"/> security</returns>
         public Future AddFutureContract(Symbol symbol, Resolution? resolution = null, bool fillDataForward = true, decimal leverage = Security.NullLeverage)
         {
-            var configs = SubscriptionManager.SubscriptionDataConfigService.Add(symbol, resolution, fillDataForward);
-            var future = (Future)Securities.CreateSecurity(symbol, configs, leverage);
-
-            AddToUserDefinedUniverse(future, configs);
-            return future;
+            return (Future)AddSecurity(symbol, resolution, fillDataForward, leverage);
         }
 
         /// <summary>
@@ -1590,7 +1623,7 @@ namespace QuantConnect.Algorithm
         /// <returns>The new <see cref="Option"/> security</returns>
         public Option AddOptionContract(Symbol symbol, Resolution? resolution = null, bool fillDataForward = true, decimal leverage = Security.NullLeverage)
         {
-            var configs = SubscriptionManager.SubscriptionDataConfigService.Add(symbol, resolution, fillDataForward);
+            var configs = SubscriptionManager.SubscriptionDataConfigService.Add(symbol, resolution, fillDataForward, dataNormalizationMode:DataNormalizationMode.Raw);
             var option = (Option)Securities.CreateSecurity(symbol, configs, leverage);
 
             // add underlying if not present
@@ -1624,8 +1657,26 @@ namespace QuantConnect.Algorithm
             equity.RefreshDataNormalizationModeProperty();
 
             option.Underlying = equity;
+            Securities.Add(option);
 
-            AddToUserDefinedUniverse(option, configs);
+            // get or create the universe
+            var universeSymbol = OptionContractUniverse.CreateSymbol(symbol.ID.Market, symbol.Underlying.SecurityType);
+            Universe universe;
+            if (!UniverseManager.TryGetValue(universeSymbol, out universe))
+            {
+                universe = _pendingUniverseAdditions.FirstOrDefault(u => u.Configuration.Symbol == universeSymbol)
+                           ?? AddUniverse(new OptionContractUniverse(new SubscriptionDataConfig(configs.First(), symbol: universeSymbol), UniverseSettings));
+            }
+
+            // update the universe
+            var optionUniverse = universe as OptionContractUniverse;
+            if (optionUniverse != null)
+            {
+                foreach (var subscriptionDataConfig in configs.Concat(underlyingConfigs))
+                {
+                    optionUniverse.Add(subscriptionDataConfig);
+                }
+            }
 
             return option;
         }
@@ -1670,6 +1721,17 @@ namespace QuantConnect.Algorithm
         public Crypto AddCrypto(string ticker, Resolution? resolution = null, string market = null, bool fillDataForward = true, decimal leverage = Security.NullLeverage)
         {
             return AddSecurity<Crypto>(SecurityType.Crypto, ticker, resolution, market, fillDataForward, leverage, false);
+        }
+
+        /// <summary>
+        /// Removes the security with the specified symbol. This will cancel all
+        /// open orders and then liquidate any existing holdings
+        /// </summary>
+        /// <param name="symbol">The symbol of the security to be removed</param>
+        /// <remarks>Sugar syntax for <see cref="AddOptionContract"/></remarks>
+        public bool RemoveOptionContract(Symbol symbol)
+        {
+            return RemoveSecurity(symbol);
         }
 
         /// <summary>
@@ -1727,6 +1789,7 @@ namespace QuantConnect.Algorithm
 
                     // finally, dispose and remove the canonical security from the universe manager
                     UniverseManager.Remove(symbol);
+                    _userAddedUniverses.Remove(symbol);
                 }
             }
             else

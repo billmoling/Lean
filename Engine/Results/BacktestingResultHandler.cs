@@ -16,6 +16,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using QuantConnect.Configuration;
@@ -26,10 +27,7 @@ using QuantConnect.Orders;
 using QuantConnect.Packets;
 using QuantConnect.Statistics;
 using QuantConnect.Util;
-using System.IO;
 using QuantConnect.Lean.Engine.Alphas;
-using CsvHelper;
-using System.Globalization;
 
 namespace QuantConnect.Lean.Engine.Results
 {
@@ -38,9 +36,6 @@ namespace QuantConnect.Lean.Engine.Results
     /// </summary>
     public class BacktestingResultHandler : BaseResultsHandler, IResultHandler
     {
-        // used for resetting out/error upon completion
-        private static readonly TextWriter StandardOut = Console.Out;
-        private static readonly TextWriter StandardError = Console.Error;
         private const double Samples = 4000;
         private const double MinimumSamplePeriod = 4;
 
@@ -49,8 +44,8 @@ namespace QuantConnect.Lean.Engine.Results
         private DateTime _nextUpdate;
         private DateTime _nextS3Update;
         private string _errorMessage;
-        private double _daysProcessed;
-        private double _daysProcessedFrontier;
+        private int _daysProcessed;
+        private int _daysProcessedFrontier;
         private readonly HashSet<string> _chartSeriesExceededDataPoints;
 
         //Processing Time:
@@ -136,10 +131,6 @@ namespace QuantConnect.Lean.Engine.Results
             }
 
             Log.Trace("BacktestingResultHandler.Run(): Ending Thread...");
-
-            // reset standard out/error
-            Console.SetOut(StandardOut);
-            Console.SetError(StandardError);
         } // End Run();
 
         /// <summary>
@@ -155,7 +146,8 @@ namespace QuantConnect.Lean.Engine.Results
                     return;
                 }
 
-                if (DateTime.UtcNow <= _nextUpdate || _daysProcessed < _daysProcessedFrontier) return;
+                var utcNow = DateTime.UtcNow;
+                if (utcNow <= _nextUpdate || _daysProcessed < _daysProcessedFrontier) return;
 
                 var deltaOrders = GetDeltaOrders(LastDeltaOrderPosition, shouldStop: orderCount => orderCount >= 50);
                 // Deliberately skip to the end of order event collection to prevent overloading backtesting UX
@@ -165,7 +157,7 @@ namespace QuantConnect.Lean.Engine.Results
                 try
                 {
                     _daysProcessedFrontier = _daysProcessed + 1;
-                    _nextUpdate = DateTime.UtcNow.AddSeconds(2);
+                    _nextUpdate = utcNow.AddSeconds(3);
                 }
                 catch (Exception err)
                 {
@@ -173,7 +165,7 @@ namespace QuantConnect.Lean.Engine.Results
                 }
 
                 var deltaCharts = new Dictionary<string, Chart>();
-
+                var serverStatistics = GetServerStatistics(utcNow);
                 var performanceCharts = new Dictionary<string, Chart>();
                 lock (ChartLock)
                 {
@@ -207,12 +199,11 @@ namespace QuantConnect.Lean.Engine.Results
                 var summary = GenerateStatisticsResults(performanceCharts).Summary;
                 GetAlgorithmRuntimeStatistics(summary, runtimeStatistics);
 
-                //Profit Loss Changes:
-                var progress = Convert.ToDecimal(_daysProcessed / _jobDays);
+                var progress = (decimal)_daysProcessed / _jobDays;
                 if (progress > 0.999m) progress = 0.999m;
 
                 //1. Cloud Upload -> Upload the whole packet to S3  Immediately:
-                if (DateTime.UtcNow > _nextS3Update)
+                if (utcNow > _nextS3Update)
                 {
                     // For intermediate backtesting results, we truncate the order list to include only the last 100 orders
                     // The final packet will contain the full list of orders.
@@ -235,12 +226,15 @@ namespace QuantConnect.Lean.Engine.Results
                 }
 
                 //2. Backtest Update -> Send the truncated packet to the backtester:
-                var splitPackets = SplitPackets(deltaCharts, deltaOrders, runtimeStatistics, progress);
+                var splitPackets = SplitPackets(deltaCharts, deltaOrders, runtimeStatistics, progress, serverStatistics);
 
                 foreach (var backtestingPacket in splitPackets)
                 {
                     MessagingHandler.Send(backtestingPacket);
                 }
+
+                // let's re update this value after we finish just in case, so we don't re enter in the next loop
+                _nextUpdate = DateTime.UtcNow.AddSeconds(3);
             }
             catch (Exception err)
             {
@@ -251,7 +245,7 @@ namespace QuantConnect.Lean.Engine.Results
         /// <summary>
         /// Run over all the data and break it into smaller packets to ensure they all arrive at the terminal
         /// </summary>
-        public IEnumerable<BacktestResultPacket> SplitPackets(Dictionary<string, Chart> deltaCharts, Dictionary<int, Order> deltaOrders, Dictionary<string, string> runtimeStatistics, decimal progress)
+        public IEnumerable<BacktestResultPacket> SplitPackets(Dictionary<string, Chart> deltaCharts, Dictionary<int, Order> deltaOrders, Dictionary<string, string> runtimeStatistics, decimal progress, Dictionary<string, string> serverStatistics)
         {
             // break the charts into groups
             var splitPackets = new List<BacktestResultPacket>();
@@ -269,11 +263,15 @@ namespace QuantConnect.Lean.Engine.Results
             // Send alpha run time statistics
             splitPackets.Add(new BacktestResultPacket(_job, new BacktestResult { AlphaRuntimeStatistics = AlphaRuntimeStatistics }, Algorithm.EndDate, Algorithm.StartDate, progress));
 
-            // Add the orders into the charting packet:
-            splitPackets.Add(new BacktestResultPacket(_job, new BacktestResult { Orders = deltaOrders }, Algorithm.EndDate, Algorithm.StartDate, progress));
+            // only send orders if there is actually any update
+            if (deltaOrders.Count > 0)
+            {
+                // Add the orders into the charting packet:
+                splitPackets.Add(new BacktestResultPacket(_job, new BacktestResult { Orders = deltaOrders }, Algorithm.EndDate, Algorithm.StartDate, progress));
+            }
 
             //Add any user runtime statistics into the backtest.
-            splitPackets.Add(new BacktestResultPacket(_job, new BacktestResult { RuntimeStatistics = runtimeStatistics }, Algorithm.EndDate, Algorithm.StartDate, progress));
+            splitPackets.Add(new BacktestResultPacket(_job, new BacktestResult { ServerStatistics = serverStatistics, RuntimeStatistics = runtimeStatistics }, Algorithm.EndDate, Algorithm.StartDate, progress));
 
             return splitPackets;
         }
@@ -315,8 +313,7 @@ namespace QuantConnect.Lean.Engine.Results
                     SaveResults(key, results);
 
                     // Store Order Events in a separate file
-                    StoreOrderEvents(Algorithm.UtcTime, result.Results.OrderEvents);
-                    //StoreOrderEventToCSV(result.Results.OrderEvents);
+                    StoreOrderEvents(Algorithm?.UtcTime ?? DateTime.UtcNow, result.Results.OrderEvents);
                 }
                 else
                 {
@@ -328,21 +325,6 @@ namespace QuantConnect.Lean.Engine.Results
                 Log.Error(err);
             }
         }
-        /// <summary>
-        /// Write OrderEvent to CSV
-        /// </summary>
-        /// <param name="OrderEvents"></param>
-        private void StoreOrderEventToCSV(List<OrderEvent> OrderEvents)
-        {
-            using (var writer = new StreamWriter("order-event.csv"))
-            using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
-            {
-
-                csv.Configuration.Delimiter = ",";
-                csv.WriteRecords(OrderEvents);
-            }
-        }
-
 
         /// <summary>
         /// Send a final analysis result back to the IDE.
@@ -351,30 +333,37 @@ namespace QuantConnect.Lean.Engine.Results
         {
             try
             {
-                //Convert local dictionary:
-                var charts = new Dictionary<string, Chart>(Charts);
-                var orders = new Dictionary<int, Order>(TransactionHandler.Orders);
-                var profitLoss = new SortedDictionary<DateTime, decimal>(Algorithm.Transactions.TransactionRecord);
-                var statisticsResults = GenerateStatisticsResults(charts, profitLoss);
-                var runtime = GetAlgorithmRuntimeStatistics(statisticsResults.Summary);
-
-                FinalStatistics = statisticsResults.Summary;
-
-                // clear the trades collection before placing inside the backtest result
-                foreach (var ap in statisticsResults.RollingPerformances.Values)
+                BacktestResultPacket result;
+                // could happen if algorithm failed to init
+                if (Algorithm != null)
                 {
-                    ap.ClosedTrades.Clear();
+                    //Convert local dictionary:
+                    var charts = new Dictionary<string, Chart>(Charts);
+                    var orders = new Dictionary<int, Order>(TransactionHandler.Orders);
+                    var profitLoss = new SortedDictionary<DateTime, decimal>(Algorithm.Transactions.TransactionRecord);
+                    var statisticsResults = GenerateStatisticsResults(charts, profitLoss);
+                    var runtime = GetAlgorithmRuntimeStatistics(statisticsResults.Summary);
+
+                    FinalStatistics = statisticsResults.Summary;
+
+                    // clear the trades collection before placing inside the backtest result
+                    foreach (var ap in statisticsResults.RollingPerformances.Values)
+                    {
+                        ap.ClosedTrades.Clear();
+                    }
+                    var orderEvents = TransactionHandler.OrderEvents.ToList();
+                    //Create a result packet to send to the browser.
+                    result = new BacktestResultPacket(_job,
+                        new BacktestResult(new BacktestResultParameters(charts, orders, profitLoss, statisticsResults.Summary, runtime, statisticsResults.RollingPerformances, orderEvents, statisticsResults.TotalPerformance, AlphaRuntimeStatistics)),
+                        Algorithm.EndDate, Algorithm.StartDate);
                 }
-                var orderEvents = TransactionHandler.OrderEvents.ToList();
-                //Create a result packet to send to the browser.
-                var result = new BacktestResultPacket(_job,
-                    new BacktestResult(new BacktestResultParameters(charts, orders, profitLoss, statisticsResults.Summary, runtime, statisticsResults.RollingPerformances, orderEvents, statisticsResults.TotalPerformance, AlphaRuntimeStatistics)),
-                    Algorithm.EndDate, Algorithm.StartDate)
+                else
                 {
-                    ProcessingTime = (DateTime.UtcNow - StartTime).TotalSeconds,
-                    DateFinished = DateTime.Now,
-                    Progress = 1
-                };
+                    result = BacktestResultPacket.CreateEmpty(_job);
+                }
+                result.ProcessingTime = (DateTime.UtcNow - StartTime).TotalSeconds;
+                result.DateFinished = DateTime.Now;
+                result.Progress = 1;
 
                 //Place result into storage.
                 StoreResult(result);
@@ -424,25 +413,14 @@ namespace QuantConnect.Lean.Engine.Results
             }
             SecurityType(types);
 
-            if (Config.GetBool("forward-console-messages", true))
-            {
-                // we need to forward Console.Write messages to the algorithm's Debug function
-                Console.SetOut(new FuncTextWriter(algorithm.Debug));
-                Console.SetError(new FuncTextWriter(algorithm.Error));
-            }
-            else
-            {
-                // we need to forward Console.Write messages to the standard Log functions
-                Console.SetOut(new FuncTextWriter(msg => Log.Trace(msg)));
-                Console.SetError(new FuncTextWriter(msg => Log.Error(msg)));
-            }
+            ConfigureConsoleTextWriter(algorithm);
         }
 
         /// <summary>
         /// Send a debug message back to the browser console.
         /// </summary>
         /// <param name="message">Message we'd like shown in console.</param>
-        public void DebugMessage(string message)
+        public virtual void DebugMessage(string message)
         {
             Messages.Enqueue(new DebugPacket(_projectId, AlgorithmId, CompileId, message));
             AddToLogStore(message);
@@ -452,7 +430,7 @@ namespace QuantConnect.Lean.Engine.Results
         /// Send a system debug message back to the browser console.
         /// </summary>
         /// <param name="message">Message we'd like shown in console.</param>
-        public void SystemDebugMessage(string message)
+        public virtual void SystemDebugMessage(string message)
         {
             Messages.Enqueue(new SystemDebugPacket(_projectId, AlgorithmId, CompileId, message));
             AddToLogStore(message);
@@ -462,13 +440,13 @@ namespace QuantConnect.Lean.Engine.Results
         /// Send a logging message to the log list for storage.
         /// </summary>
         /// <param name="message">Message we'd in the log.</param>
-        public void LogMessage(string message)
+        public virtual void LogMessage(string message)
         {
             Messages.Enqueue(new LogPacket(AlgorithmId, message));
             AddToLogStore(message);
         }
 
-        private void AddToLogStore(string message)
+        protected override void AddToLogStore(string message)
         {
             lock (LogStore)
             {
@@ -483,7 +461,7 @@ namespace QuantConnect.Lean.Engine.Results
         /// <summary>
         /// Send list of security asset types the algortihm uses to browser.
         /// </summary>
-        public void SecurityType(List<SecurityType> types)
+        public virtual void SecurityType(List<SecurityType> types)
         {
             var packet = new SecurityTypesPacket
             {
@@ -497,7 +475,7 @@ namespace QuantConnect.Lean.Engine.Results
         /// </summary>
         /// <param name="message">Error message we'd like shown in console.</param>
         /// <param name="stacktrace">Stacktrace information string</param>
-        public void ErrorMessage(string message, string stacktrace = "")
+        public virtual void ErrorMessage(string message, string stacktrace = "")
         {
             if (message == _errorMessage) return;
             if (Messages.Count > 500) return;
@@ -510,7 +488,7 @@ namespace QuantConnect.Lean.Engine.Results
         /// </summary>
         /// <param name="message">Error message.</param>
         /// <param name="stacktrace">Stacktrace information string</param>
-        public void RuntimeError(string message, string stacktrace = "")
+        public virtual void RuntimeError(string message, string stacktrace = "")
         {
             PurgeQueue();
             Messages.Enqueue(new RuntimeErrorPacket(_job.UserId, AlgorithmId, message, stacktrace));
@@ -570,8 +548,14 @@ namespace QuantConnect.Lean.Engine.Results
         {
             base.SampleEquity(time, value);
 
-            //Recalculate the days processed:
-            _daysProcessed = (time - Algorithm.StartDate).TotalDays;
+            try
+            {
+                //Recalculate the days processed. We use 'int' so it's thread safe
+                _daysProcessed = (int) (time - Algorithm.StartDate).TotalDays;
+            }
+            catch (OverflowException)
+            {
+            }
         }
 
         /// <summary>
@@ -635,17 +619,19 @@ namespace QuantConnect.Lean.Engine.Results
         /// <summary>
         /// Terminate the result thread and apply any required exit procedures like sending final results.
         /// </summary>
-        public virtual void Exit()
+        public override void Exit()
         {
             // Only process the logs once
             if (!ExitTriggered)
             {
+                Log.Trace("BacktestingResultHandler.Exit(): starting...");
                 List<LogEntry> copy;
                 lock (LogStore)
                 {
                     copy = LogStore.ToList();
                 }
                 ProcessSynchronousEvents(true);
+                Log.Trace("BacktestingResultHandler.Exit(): Saving logs...");
                 var logLocation = SaveLogs(_algorithmId, copy);
                 SystemDebugMessage("Your log was successfully created and can be retrieved from: " + logLocation);
 
@@ -655,6 +641,8 @@ namespace QuantConnect.Lean.Engine.Results
                 StopUpdateRunner();
 
                 SendFinalResult();
+
+                base.Exit();
             }
         }
 
@@ -675,7 +663,7 @@ namespace QuantConnect.Lean.Engine.Results
         /// </summary>
         /// <param name="key">Runtime headline statistic name</param>
         /// <param name="value">Runtime headline statistic value</param>
-        public void RuntimeStatistic(string key, string value)
+        public virtual void RuntimeStatistic(string key, string value)
         {
             lock (RuntimeStatistics)
             {
@@ -706,56 +694,36 @@ namespace QuantConnect.Lean.Engine.Results
                 SampleRange(Algorithm.GetChartUpdates());
             }
 
-            long endTime;
-            // avoid calling utcNow if not required
-            if (Algorithm.DebugMessages.Count > 0)
-            {
-                //Send out the debug messages:
-                endTime = DateTime.UtcNow.AddMilliseconds(250).Ticks;
-                while (Algorithm.DebugMessages.Count > 0 && DateTime.UtcNow.Ticks < endTime)
-                {
-                    string message;
-                    if (Algorithm.DebugMessages.TryDequeue(out message))
-                    {
-                        DebugMessage(message);
-                    }
-                }
-            }
-
-            // avoid calling utcNow if not required
-            if (Algorithm.ErrorMessages.Count > 0)
-            {
-                //Send out the error messages:
-                endTime = DateTime.UtcNow.AddMilliseconds(250).Ticks;
-                while (Algorithm.ErrorMessages.Count > 0 && DateTime.UtcNow.Ticks < endTime)
-                {
-                    string message;
-                    if (Algorithm.ErrorMessages.TryDequeue(out message))
-                    {
-                        ErrorMessage(message);
-                    }
-                }
-            }
-
-            // avoid calling utcNow if not required
-            if (Algorithm.LogMessages.Count > 0)
-            {
-                //Send out the log messages:
-                endTime = DateTime.UtcNow.AddMilliseconds(250).Ticks;
-                while (Algorithm.LogMessages.Count > 0 && DateTime.UtcNow.Ticks < endTime)
-                {
-                    string message;
-                    if (Algorithm.LogMessages.TryDequeue(out message))
-                    {
-                        LogMessage(message);
-                    }
-                }
-            }
+            ProcessAlgorithmLogs();
 
             //Set the running statistics:
             foreach (var pair in Algorithm.RuntimeStatistics)
             {
                 RuntimeStatistic(pair.Key, pair.Value);
+            }
+        }
+
+        /// <summary>
+        /// Configures the <see cref="Console.Out"/> and <see cref="Console.Error"/> <see cref="TextWriter"/>
+        /// instances. By default, we forward <see cref="Console.WriteLine(string)"/> to <see cref="IAlgorithm.Debug"/>.
+        /// This is perfect for running in the cloud, but since they're processed asynchronously, the ordering of these
+        /// messages with respect to <see cref="Log"/> messages is broken. This can lead to differences in regression
+        /// test logs based solely on the ordering of messages. To disable this forwarding, set <code>"forward-console-messages"</code>
+        /// to <code>false</code> in the configuration.
+        /// </summary>
+        protected virtual void ConfigureConsoleTextWriter(IAlgorithm algorithm)
+        {
+            if (Config.GetBool("forward-console-messages", true))
+            {
+                // we need to forward Console.Write messages to the algorithm's Debug function
+                Console.SetOut(new FuncTextWriter(algorithm.Debug));
+                Console.SetError(new FuncTextWriter(algorithm.Error));
+            }
+            else
+            {
+                // we need to forward Console.Write messages to the standard Log functions
+                Console.SetOut(new FuncTextWriter(msg => Log.Trace(msg)));
+                Console.SetError(new FuncTextWriter(msg => Log.Error(msg)));
             }
         }
     }

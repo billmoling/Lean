@@ -675,8 +675,8 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
             // rounds the order prices
             RoundOrderPrices(order, security);
 
-            // save current security time and prices
-            order.OrderSubmissionData = new OrderSubmissionData(security.GetLastData());
+            // save current security prices
+            order.OrderSubmissionData = new OrderSubmissionData(security.BidPrice, security.AskPrice, security.Close);
 
             // update the ticket's internal storage with this new order reference
             ticket.SetOrder(order);
@@ -1027,10 +1027,10 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
                     }
                 }
 
-                // update the ticket and order after we've processed the fill, but before the event, this way everything is ready for user code
+                // update the ticket after we've processed the fill, but before the event, this way everything is ready for user code
                 ticket.AddOrderEvent(orderEvent);
-                order.Price = ticket.AverageFillPrice;
             }
+
             //We have an event! :) Order filled, send it in to be handled by algorithm portfolio.
             if (orderEvent.Status != OrderStatus.None) //order.Status != OrderStatus.Submitted
             {
@@ -1083,10 +1083,7 @@ namespace QuantConnect.Lean.Engine.TransactionHandlers
         private void HandlePositionAssigned(OrderEvent fill)
         {
             // informing user algorithm that option position has been assigned
-            if (fill.IsAssignment)
-            {
-                _algorithm.OnAssignmentOrderEvent(fill);
-            }
+            _algorithm.OnAssignmentOrderEvent(fill);
         }
 
         /// <summary>

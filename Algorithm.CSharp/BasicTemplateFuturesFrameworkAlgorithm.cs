@@ -53,12 +53,12 @@ namespace QuantConnect.Algorithm.CSharp
             var newYorkTime = utcTime.ConvertFromUtc(TimeZones.NewYork);
             if (newYorkTime.Date < new DateTime(2013, 10, 09))
             {
-                yield return QuantConnect.Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.USA);
+                yield return QuantConnect.Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.CME);
             }
 
             if (newYorkTime.Date >= new DateTime(2013, 10, 09))
             {
-                yield return QuantConnect.Symbol.Create(Futures.Metals.Gold, SecurityType.Future, Market.USA);
+                yield return QuantConnect.Symbol.Create(Futures.Metals.Gold, SecurityType.Future, Market.COMEX);
             }
         }
 
@@ -147,13 +147,13 @@ namespace QuantConnect.Algorithm.CSharp
             {"Loss Rate", "0%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "-1.332"},
-            {"Beta", "0.255"},
+            {"Alpha", "-1.347"},
+            {"Beta", "0.257"},
             {"Annual Standard Deviation", "0.109"},
             {"Annual Variance", "0.012"},
-            {"Information Ratio", "-14.489"},
-            {"Tracking Error", "0.189"},
-            {"Treynor Ratio", "-3.34"},
+            {"Information Ratio", "-14.763"},
+            {"Tracking Error", "0.188"},
+            {"Treynor Ratio", "-3.318"},
             {"Total Fees", "$3.70"},
             {"Fitness Score", "0.009"},
             {"Kelly Criterion Estimate", "-112.972"},
@@ -174,7 +174,7 @@ namespace QuantConnect.Algorithm.CSharp
             {"Mean Population Magnitude", "0%"},
             {"Rolling Averaged Population Direction", "0%"},
             {"Rolling Averaged Population Magnitude", "0%"},
-            {"OrderListHash", "-1633045914"}
+            {"OrderListHash", "-1624258832"}
         };
     }
 }

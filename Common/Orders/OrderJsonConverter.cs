@@ -17,10 +17,8 @@ using System;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using QuantConnect.Configuration;
-using QuantConnect.Interfaces;
-using QuantConnect.Util;
 using QuantConnect.Brokerages;
+using QuantConnect.Securities;
 
 namespace QuantConnect.Orders
 {
@@ -29,10 +27,6 @@ namespace QuantConnect.Orders
     /// </summary>
     public class OrderJsonConverter : JsonConverter
     {
-        private static readonly Lazy<IMapFileProvider> MapFileProvider = new Lazy<IMapFileProvider>(() =>
-            Composer.Instance.GetExportedValueByTypeName<IMapFileProvider>(Config.Get("map-file-provider", "LocalDiskMapFileProvider"))
-            );
-
         /// <summary>
         /// Gets a value indicating whether this <see cref="T:Newtonsoft.Json.JsonConverter"/> can write JSON.
         /// </summary>
@@ -94,8 +88,32 @@ namespace QuantConnect.Orders
 
             // populate common order properties
             order.Id = jObject["Id"].Value<int>();
-            order.Status = (OrderStatus) jObject["Status"].Value<int>();
-            order.Time = jObject["Time"].Value<DateTime>();
+
+            var jsonStatus = jObject["Status"];
+            var jsonTime = jObject["Time"];
+            if (jsonStatus.Type == JTokenType.Integer)
+            {
+                order.Status = (OrderStatus) jsonStatus.Value<int>();
+            }
+            else if (jsonStatus.Type == JTokenType.Null)
+            {
+                order.Status = OrderStatus.Canceled;
+            }
+            else
+            {
+                // The `Status` tag can sometimes appear as a string of the enum value in the LiveResultPacket.
+                order.Status = (OrderStatus) Enum.Parse(typeof(OrderStatus), jsonStatus.Value<string>(), true);
+            }
+            if (jsonTime != null && jsonTime.Type != JTokenType.Null)
+            {
+                order.Time = jsonTime.Value<DateTime>();
+            }
+            else
+            {
+                // `Time` can potentially be null in some LiveResultPacket instances, but
+                // `CreatedTime` will always be there if `Time` is absent.
+                order.Time = jObject["CreatedTime"].Value<DateTime>();
+            }
 
             var orderSubmissionData = jObject["OrderSubmissionData"];
             if (orderSubmissionData != null && orderSubmissionData.Type != JTokenType.Null)
@@ -133,8 +151,16 @@ namespace QuantConnect.Orders
             }
 
             order.Quantity = jObject["Quantity"].Value<decimal>();
+            var orderPrice = jObject["Price"];
+            if (orderPrice != null && orderPrice.Type != JTokenType.Null)
+            {
+                order.Price = orderPrice.Value<decimal>();
+            }
+            else
+            {
+                order.Price = default(decimal);
+            }
 
-            order.Price = jObject["Price"].Value<decimal>();
             var priceCurrency = jObject["PriceCurrency"];
             if (priceCurrency != null && priceCurrency.Type != JTokenType.Null)
             {
@@ -149,18 +175,13 @@ namespace QuantConnect.Orders
                 ? CreateTimeInForce(timeInForce, jObject)
                 : TimeInForce.GoodTilCanceled;
 
-            string market = Market.USA;
+            string market = null;
 
             //does data have market?
             var suppliedMarket = jObject.SelectTokens("Symbol.ID.Market");
             if (suppliedMarket.Any())
             {
                 market = suppliedMarket.Single().Value<string>();
-            }
-            else
-            {
-                //no data, use default
-                new DefaultBrokerageModel().DefaultMarkets.TryGetValue(securityType, out market);
             }
 
             if (jObject.SelectTokens("Symbol.ID").Any())
@@ -173,11 +194,21 @@ namespace QuantConnect.Orders
             {
                 // provide for backwards compatibility
                 var ticker = jObject.SelectTokens("Symbol.Value").Single().Value<string>();
+
+                if (market == null && !SymbolPropertiesDatabase.FromDataFolder().TryGetMarket(ticker, securityType, out market))
+                {
+                    market = DefaultBrokerageModel.DefaultMarketMap[securityType];
+                }
                 order.Symbol = Symbol.Create(ticker, securityType, market);
             }
             else
             {
                 var tickerstring = jObject["Symbol"].Value<string>();
+
+                if (market == null && !SymbolPropertiesDatabase.FromDataFolder().TryGetMarket(tickerstring, securityType, out market))
+                {
+                    market = DefaultBrokerageModel.DefaultMarketMap[securityType];
+                }
                 order.Symbol = Symbol.Create(tickerstring, securityType, market);
             }
 

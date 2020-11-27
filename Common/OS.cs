@@ -140,7 +140,9 @@ namespace QuantConnect
                     }
                 }
 
-                return (decimal) _cpuUsageCounter.NextValue();
+                var newSample = (decimal) _cpuUsageCounter.NextValue();
+                // mono is reporting double https://github.com/mono/mono/issues/20128
+                return IsWindows ? newSample : newSample / 2;
             }
         }
 
@@ -154,8 +156,6 @@ namespace QuantConnect
                 { "CPU Usage", Invariant($"{CpuUsage:0.0}%")},
                 { "Used RAM (MB)", TotalPhysicalMemoryUsed.ToStringInvariant() },
                 { "Total RAM (MB)", "" },
-                { "Used Disk Space (MB)", DriveSpaceUsed.ToStringInvariant() },
-                { "Total Disk Space (MB)", DriveTotalSpace.ToStringInvariant() },
                 { "Hostname", Environment.MachineName },
                 { "LEAN Version", $"v{Globals.Version}"}
             };

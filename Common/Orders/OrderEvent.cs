@@ -17,6 +17,8 @@ using System;
 using System.ComponentModel;
 using Newtonsoft.Json;
 using QuantConnect.Orders.Fees;
+using QuantConnect.Orders.Serialization;
+using QuantConnect.Securities;
 using static QuantConnect.StringExtensions;
 
 namespace QuantConnect.Orders
@@ -225,7 +227,7 @@ namespace QuantConnect.Orders
         /// <filterpriority>2</filterpriority>
         public override string ToString()
         {
-            var message = Invariant($"Time: {UtcTime} OrderID: {OrderId} EventID: {Id} Symbol: {Symbol.Value} Status: {Status} Quantity {Quantity}");
+            var message = Invariant($"Time: {UtcTime} OrderID: {OrderId} EventID: {Id} Symbol: {Symbol.Value} Status: {Status} Quantity: {Quantity}");
             if (FillQuantity != 0)
             {
                 message += Invariant($" FillQuantity: {FillQuantity} FillPrice: {FillPrice.SmartRounding()} {FillPriceCurrency}");
@@ -249,6 +251,11 @@ namespace QuantConnect.Orders
                 message += Invariant($" Message: {Message}");
             }
 
+            if (Symbol.SecurityType == SecurityType.Option)
+            {
+                message += Invariant($" IsAssignment: {IsAssignment}");
+            }
+
             return message;
         }
 
@@ -259,6 +266,42 @@ namespace QuantConnect.Orders
         public OrderEvent Clone()
         {
             return (OrderEvent) MemberwiseClone();
+        }
+
+        /// <summary>
+        /// Creates a new instance based on the provided serialized order event
+        /// </summary>
+        public static OrderEvent FromSerialized(SerializedOrderEvent serializedOrderEvent)
+        {
+            var sid = SecurityIdentifier.Parse(serializedOrderEvent.Symbol);
+            var symbol = new Symbol(sid, sid.Symbol);
+
+            var orderFee = OrderFee.Zero;
+            if (serializedOrderEvent.OrderFeeAmount.HasValue)
+            {
+                orderFee = new OrderFee(new CashAmount(serializedOrderEvent.OrderFeeAmount.Value,
+                    serializedOrderEvent.OrderFeeCurrency));
+            }
+
+            var orderEvent = new OrderEvent(serializedOrderEvent.OrderId,
+                symbol,
+                DateTime.SpecifyKind(Time.UnixTimeStampToDateTime(serializedOrderEvent.Time), DateTimeKind.Utc),
+                serializedOrderEvent.Status,
+                serializedOrderEvent.Direction,
+                serializedOrderEvent.FillPrice,
+                serializedOrderEvent.FillQuantity,
+                orderFee,
+                serializedOrderEvent.Message)
+            {
+                IsAssignment = serializedOrderEvent.IsAssignment,
+                LimitPrice = serializedOrderEvent.LimitPrice,
+                StopPrice = serializedOrderEvent.StopPrice,
+                FillPriceCurrency = serializedOrderEvent.FillPriceCurrency,
+                Id = serializedOrderEvent.OrderEventId,
+                Quantity = serializedOrderEvent.Quantity
+            };
+
+            return orderEvent;
         }
     }
 }

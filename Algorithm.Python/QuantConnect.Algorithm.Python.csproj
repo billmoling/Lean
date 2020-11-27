@@ -14,7 +14,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>QuantConnect.Algorithm.Python</RootNamespace>
     <AssemblyName>QuantConnect.Algorithm.Python</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <LangVersion>6</LangVersion>
     <TargetFrameworkProfile />
@@ -46,6 +46,8 @@
   <ItemGroup>
     <Content Include="AccumulativeInsightPortfolioRegressionAlgorithm.py" />
     <Content Include="AddAlphaModelAlgorithm.py" />
+    <Content Include="AddOptionContractExpiresRegressionAlgorithm.py" />
+    <Content Include="AddOptionContractFromUniverseRegressionAlgorithm.py" />
     <Content Include="AddRiskManagementAlgorithm.py" />
     <Content Include="AddUniverseSelectionModelAlgorithm.py" />
     <Content Include="Alphas\ContingentClaimsAnalysisDefaultPredictionAlpha.py" />
@@ -63,10 +65,10 @@
     <Content Include="Alphas\VIXDualThrustAlpha.py" />
     <Content Include="AltData\CachedAlternativeDataAlgorithm.py" />
     <Content Include="AltData\BenzingaNewsAlgorithm.py" />
+    <Content Include="AltData\QuiverWallStreetBetsDataAlgorithm.py" />
     <Content Include="AltData\SECReport8KAlgorithm.py" />
     <Content Include="AltData\SmartInsiderTransactionAlgorithm.py" />
     <Content Include="AltData\USTreasuryYieldCurveRateAlgorithm.py" />
-    <Content Include="AltData\PsychSignalSentimentAlgorithm.py" />
     <Content Include="AltData\TradingEconomicsAlgorithm.py" />
     <Content Include="AltData\TiingoNewsAlgorithm.py" />
     <Content Include="BasicCSharpIntegrationTemplateAlgorithm.py" />
@@ -78,20 +80,28 @@
     <None Include="CustomDataAddDataRegressionAlgorithm.py" />
     <None Include="TrainingExampleAlgorithm.py" />
     <None Include="LongOnlyAlphaStreamAlgorithm.py" />
-    <None Include="BasicAlphaStreamTSEAlgorithm.py" />
+    <None Include="CustomPartialFillModelAlgorithm.py" />
     <Content Include="BasicTemplateConstituentUniverseAlgorithm.py" />
     <Content Include="BasicTemplateOptionsConsolidationAlgorithm.py" />
+    <None Include="BasicTemplateOptionsPriceModel.py" />
     <Content Include="Benchmarks\SECReportBenchmarkAlgorithm.py" />
     <Content Include="Benchmarks\SmartInsiderEventBenchmarkAlgorithm.py" />
+    <Content Include="CoarseFineOptionUniverseChainRegressionAlgorithm.py" />
+    <Content Include="CoarseTiingoNewsUniverseSelectionAlgorithm.py" />
     <Content Include="ConsolidateRegressionAlgorithm.py" />
+    <Content Include="CustomConsolidatorRegressionAlgorithm.py" />
     <Content Include="CustomDataAddDataOnSecuritiesChangedRegressionAlgorithm.py" />
     <Content Include="CustomDataAddDataCoarseSelectionRegressionAlgorithm.py" />
+    <None Include="CustomBuyingPowerModelAlgorithm.py" />
     <Content Include="DynamicSecurityDataAlgorithm.py" />
     <Content Include="ConfidenceWeightedFrameworkAlgorithm.py" />
+    <Content Include="ExtendedMarketTradingRegressionAlgorithm.py" />
+    <Content Include="FilterUniverseRegressionAlgorithm.py" />
+    <Content Include="FineFundamentalFilteredUniverseRegressionAlgorithm.py" />
     <Content Include="KerasNeuralNetworkAlgorithm.py" />
-    <None Include="PsychSignalSentimentRegressionAlgorithm.py" />
     <Content Include="CustomDataUsingMapFileRegressionAlgorithm.py" />
     <Content Include="LiquidETFUniverseFrameworkAlgorithm.py" />
+    <Content Include="ObjectStoreExampleAlgorithm.py" />
     <Content Include="LiveFeaturesAlgorithm.py" />
     <Content Include="PortfolioRebalanceOnCustomFuncRegressionAlgorithm.py" />
     <Content Include="PortfolioRebalanceOnDateRulesRegressionAlgorithm.py" />
@@ -99,6 +109,9 @@
     <Content Include="RegisterIndicatorRegressionAlgorithm.py" />
     <Content Include="SectorWeightingFrameworkAlgorithm.py" />
     <Content Include="SetHoldingsMultipleTargetsRegressionAlgorithm.py" />
+    <Content Include="SliceGetByTypeRegressionAlgorithm.py" />
+    <Content Include="StringToSymbolImplicitConversionRegressionAlgorithm.py" />
+    <Content Include="TalibIndicatorsAlgorithm.py" />
     <Content Include="TradingEconomicsCalendarIndicatorAlgorithm.py" />
     <Content Include="OnEndOfDayRegressionAlgorithm.py" />
     <Content Include="SECReportDataAlgorithm.py" />
@@ -150,8 +163,12 @@
     <None Include="BasicTemplateOptionTradesAlgorithm.py" />
     <None Include="BrokerageModelAlgorithm.py" />
     <None Include="BubbleAlgorithm.py" />
-    <None Include="build.sh" />
-    <None Include="build.bat" />
+    <None Include="build.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="build.bat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="CoarseFineFundamentalComboAlgorithm.py" />
     <None Include="CoarseFineFundamentalRegressionAlgorithm.py" />
     <None Include="CoarseFundamentalTop3Algorithm.py" />
@@ -176,6 +193,7 @@
     <None Include="DropboxBaseDataUniverseSelectionAlgorithm.py" />
     <None Include="DropboxUniverseSelectionAlgorithm.py" />
     <None Include="DropboxCoarseFineAlgorithm.py" />
+    <None Include="EmaCrossFuturesFrontMonthAlgorithm.py" />
     <None Include="EmaCrossUniverseSelectionAlgorithm.py" />
     <None Include="EmaCrossUniverseSelectionFrameworkAlgorithm.py" />
     <None Include="ETFGlobalRotationAlgorithm.py" />
@@ -214,6 +232,7 @@
     <None Include="RenkoConsolidatorAlgorithm.py" />
     <None Include="RollingWindowAlgorithm.py" />
     <None Include="ScheduledEventsAlgorithm.py" />
+    <None Include="ScheduledQueuingAlgorithm.py" />
     <None Include="ScheduledUniverseSelectionModelRegressionAlgorithm.py" />
     <None Include="SectorExposureRiskFrameworkAlgorithm.py" />
     <None Include="StandardDeviationExecutionModelRegressionAlgorithm.py" />
@@ -265,11 +284,6 @@
     <Analyzer Include="..\packages\Microsoft.NetCore.Analyzers.2.9.3\analyzers\dotnet\cs\Microsoft.NetCore.CSharp.Analyzers.dll" />
     <Analyzer Include="..\packages\Microsoft.NetFramework.Analyzers.2.9.3\analyzers\dotnet\cs\Microsoft.NetFramework.Analyzers.dll" />
     <Analyzer Include="..\packages\Microsoft.NetFramework.Analyzers.2.9.3\analyzers\dotnet\cs\Microsoft.NetFramework.CSharp.Analyzers.dll" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="StringInterpolationBridge, Version=0.9.1.0, Culture=neutral, PublicKeyToken=761dcf67ba0bf74d, processorArchitecture=MSIL">
-      <HintPath>..\packages\StringInterpolationBridgeStrong.0.9.1\lib\net40\StringInterpolationBridge.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <PropertyGroup>
     <IsWindows>false</IsWindows>

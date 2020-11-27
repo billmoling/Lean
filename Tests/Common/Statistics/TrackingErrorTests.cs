@@ -18,7 +18,6 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using QuantConnect.Util;
 using QuantConnect.Data.Market;
-using System.Globalization;
 
 namespace QuantConnect.Tests.Common.Statistics
 {
@@ -30,7 +29,7 @@ namespace QuantConnect.Tests.Common.Statistics
         private List<double> _spyPerformance = new List<double>();
         private List<double> _aaplPerformance = new List<double>();
 
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public void GetData()
         {
             var spy = Symbol.Create("SPY", SecurityType.Equity, Market.USA);
@@ -64,7 +63,7 @@ namespace QuantConnect.Tests.Common.Statistics
             }
         }
 
-        [TestFixtureTearDown]
+        [OneTimeTearDown]
         public void Delete()
         {
             _spy.Clear();
@@ -78,17 +77,15 @@ namespace QuantConnect.Tests.Common.Statistics
         {
             var result = QuantConnect.Statistics.Statistics.TrackingError(_aaplPerformance.Take(252).ToList(), _spyPerformance.Take(252).ToList());
 
-            Assert.AreEqual(0.52792744060003449, result);
+            Assert.AreEqual(0.52780899407691173, result);
         }
 
         [Test]
         public void TotalPerformance()
         {
-            // For some reason the first SPY day is one day before AAPL
-            var localSpy = _spyPerformance.Where((v, i) => i != 0).ToList();
-            var result = QuantConnect.Statistics.Statistics.TrackingError(_aaplPerformance, localSpy);
+            var result = QuantConnect.Statistics.Statistics.TrackingError(_aaplPerformance, _spyPerformance);
 
-            Assert.AreEqual(0.53166313895342709, result);
+            Assert.AreEqual(0.43046868698429447, result);
         }
 
         [Test]

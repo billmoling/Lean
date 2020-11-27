@@ -15,8 +15,6 @@
 
 using NUnit.Framework;
 using QuantConnect.Lean.Engine.DataFeeds;
-using QuantConnect.Lean.Engine.Results;
-using QuantConnect.Lean.Engine.TransactionHandlers;
 using QuantConnect.Orders;
 using QuantConnect.Report;
 using QuantConnect.Securities;
@@ -36,6 +34,7 @@ namespace QuantConnect.Tests.Report
             // Create MHDB and Symbol properties DB instances for the DataManager
             var marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
             var symbolPropertiesDataBase = SymbolPropertiesDatabase.FromDataFolder();
+            var dataPermissionManager = new DataPermissionManager();
             var dataManager = new DataManager(new QuantConnect.Report.MockDataFeed(),
                 new UniverseSelection(
                     algorithm,
@@ -44,12 +43,15 @@ namespace QuantConnect.Tests.Report
                         symbolPropertiesDataBase,
                         algorithm,
                         RegisteredSecurityDataTypesProvider.Null,
-                        new SecurityCacheProvider(algorithm.Portfolio))),
+                        new SecurityCacheProvider(algorithm.Portfolio)),
+                    dataPermissionManager,
+                    new DefaultDataProvider()),
                 algorithm,
                 algorithm.TimeKeeper,
                 marketHoursDatabase,
                 false,
-                RegisteredSecurityDataTypesProvider.Null);
+                RegisteredSecurityDataTypesProvider.Null,
+                dataPermissionManager);
 
             var securityService = new SecurityService(algorithm.Portfolio.CashBook,
                 marketHoursDatabase,
@@ -57,9 +59,6 @@ namespace QuantConnect.Tests.Report
                 algorithm,
                 RegisteredSecurityDataTypesProvider.Null,
                 new SecurityCacheProvider(algorithm.Portfolio));
-
-            var transactions = new BacktestingTransactionHandler();
-            var results = new BacktestingResultHandler();
 
             // Initialize security services and other properties so that we
             // don't get null reference exceptions during our re-calculation
@@ -78,7 +77,7 @@ namespace QuantConnect.Tests.Report
                 Symbol.CreateOption("AAPL", Market.USA, OptionStyle.American, OptionRight.Call, 120m, new DateTime(2020, 5, 21)),
                 Symbol.Create("EURUSD", SecurityType.Forex, Market.Oanda),
                 Symbol.Create("XAUUSD", SecurityType.Cfd, Market.Oanda),
-                Symbol.CreateFuture("CL", Market.USA, new DateTime(2020, 5, 21)),
+                Symbol.CreateFuture(Futures.Energies.CrudeOilWTI, Market.NYMEX, new DateTime(2020, 5, 21)),
                 Symbol.Create("BTCUSD", SecurityType.Crypto, Market.GDAX)
             }.Select(s => new MarketOrder(s, 1m, new DateTime(2020, 1, 1))).ToList();
 
@@ -95,7 +94,7 @@ namespace QuantConnect.Tests.Report
                 Symbol.CreateOption("AAPL", Market.USA, OptionStyle.American, OptionRight.Call, 120m, new DateTime(2020, 5, 21)),
                 Symbol.Create("EURUSD", SecurityType.Forex, Market.Oanda),
                 Symbol.Create("XAUUSD", SecurityType.Cfd, Market.Oanda),
-                Symbol.CreateFuture("CL", Market.USA, new DateTime(2020, 5, 21)),
+                Symbol.CreateFuture(Futures.Energies.CrudeOilWTI, Market.NYMEX, new DateTime(2020, 5, 21)),
                 Symbol.Create("BTCUSD", SecurityType.Crypto, Market.GDAX)
             }.Select(s => new MarketOrder(s, 1m, new DateTime(2020, 1, 1)));
 

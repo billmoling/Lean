@@ -31,7 +31,6 @@ namespace QuantConnect.Brokerages.Alpaca
     /// </summary>
     public partial class AlpacaBrokerage
     {
-
         /// <summary>
         /// Retrieves the current quotes for an instrument
         /// </summary>
@@ -53,6 +52,7 @@ namespace QuantConnect.Brokerages.Alpaca
                 TickType = TickType.Quote
             };
         }
+
         private IOrder GenerateAndPlaceOrder(Order order)
         {
             var quantity = (long)order.Quantity;
@@ -112,7 +112,7 @@ namespace QuantConnect.Brokerages.Alpaca
         /// <param name="trade">The event object</param>
         private void OnTradeUpdate(ITradeUpdate trade)
         {
-            Log.Trace($"AlpacaBrokerage.OnTradeUpdate(): Event:{trade.Event} OrderId:{trade.Order.OrderId} OrderStatus:{trade.Order.OrderStatus} FillQuantity: {trade.Order.FilledQuantity} Price: {trade.Price}");
+            Log.Trace($"AlpacaBrokerage.OnTradeUpdate(): Event:{trade.Event} OrderId:{trade.Order.OrderId} Symbol:{trade.Order.Symbol} OrderStatus:{trade.Order.OrderStatus} FillQuantity:{trade.Order.FilledQuantity} FillPrice:{trade.Price} Quantity:{trade.Order.Quantity} LimitPrice:{trade.Order.LimitPrice} StopPrice:{trade.Order.StopPrice}");
 
             Order order;
             OrderTicket ticket = null;
@@ -146,12 +146,19 @@ namespace QuantConnect.Brokerages.Alpaca
                         FillQuantity = fillQuantity * (order.Direction == OrderDirection.Buy ? 1 : -1)
                     });
                 }
-                else if (trade.Event == TradeEvent.Canceled)
+                else if (trade.Event == TradeEvent.Rejected)
+                {
+                    OnOrderEvent(new OrderEvent(order,
+                            DateTime.UtcNow,
+                            OrderFee.Zero,
+                            "Alpaca Rejected Order Event") { Status = OrderStatus.Invalid });
+                }
+                else if (trade.Event == TradeEvent.Canceled || trade.Event == TradeEvent.Expired)
                 {
                     OnOrderEvent(new OrderEvent(order,
                         DateTime.UtcNow,
                         OrderFee.Zero,
-                        "Alpaca Cancel Order Event") { Status = OrderStatus.Canceled });
+                        $"Alpaca {trade.Event} Order Event") { Status = OrderStatus.Canceled });
                 }
                 else if (trade.Event == TradeEvent.OrderCancelRejected)
                 {
@@ -165,14 +172,9 @@ namespace QuantConnect.Brokerages.Alpaca
             }
         }
 
-        private static void OnPolygonStreamingClientError(Exception exception)
-        {
-            Log.Error(exception, $"PolygonStreamingClient error");
-        }
-
         private static void OnSockClientError(Exception exception)
         {
-            Log.Error(exception, "SockClient error");
+            Log.Error($"SockClient error: {exception.Message}");
         }
 
         /// <summary>
@@ -186,6 +188,12 @@ namespace QuantConnect.Brokerages.Alpaca
         /// <returns>The list of bars</returns>
         private IEnumerable<TradeBar> DownloadTradeBars(Symbol symbol, DateTime startTimeUtc, DateTime endTimeUtc, Resolution resolution, DateTimeZone requestedTimeZone)
         {
+            // Only equities supported
+            if (symbol.SecurityType != SecurityType.Equity)
+            {
+                yield break;
+            }
+
             // Only minute/hour/daily resolutions supported
             if (resolution < Resolution.Minute)
             {
@@ -277,26 +285,24 @@ namespace QuantConnect.Brokerages.Alpaca
         /// <returns>The list of ticks</returns>
         private IEnumerable<Tick> DownloadTradeTicks(Symbol symbol, DateTime startTimeUtc, DateTime endTimeUtc, DateTimeZone requestedTimeZone)
         {
-            var startTime = startTimeUtc;
+            // The Polygon API only accepts nanosecond level resolution for the expected epoch time.
+            // It is also an inclusive time, so we must increment this by one in order to get the
+            // expected results when paginating.
+            var previousTimestamp = (long?)(DateTimeHelper.GetUnixTimeMilliseconds(startTimeUtc) * 1000000);
 
-            while (startTime < endTimeUtc)
+            while (startTimeUtc < endTimeUtc)
             {
                 CheckRateLimiting();
 
-                var date = startTime.ConvertFromUtc(requestedTimeZone).Date;
-
-                var task = _polygonDataClient.ListHistoricalTradesAsync(new HistoricalRequest(symbol.Value, date));
-
-                var time = startTime;
-                var items = task.SynchronouslyAwaitTaskResult()
-                    .Items
-                    .Where(x => x.Timestamp >= time)
-                    .ToList();
-
-                if (!items.Any())
+                var dateUtc = startTimeUtc.Date;
+                var date = startTimeUtc.ConvertFromUtc(requestedTimeZone).Date;
+                var task = _polygonDataClient.ListHistoricalTradesAsync(new HistoricalRequest(symbol.Value, date)
                 {
-                    break;
-                }
+                    Timestamp = previousTimestamp
+                });
+
+                var rawItems = task.SynchronouslyAwaitTaskResult().Items;
+                var items = rawItems.Where(x => x.Timestamp >= startTimeUtc && x.Timestamp <= endTimeUtc);
 
                 foreach (var item in items)
                 {
@@ -310,7 +316,13 @@ namespace QuantConnect.Brokerages.Alpaca
                     };
                 }
 
-                startTime = items.Last().Timestamp;
+                // Cache the timestamp we're planning on using so we don't null check twice.
+                var nextTime = rawItems.LastOrDefault()?.Timestamp ?? dateUtc.AddDays(1);
+
+                // Timestamp of items are in UTC, and so should the date we're incrementing.
+                startTimeUtc = nextTime;
+                // Convert milliseconds to nanoseconds and add one nanosecond to the time (timestamp is inclusive)
+                previousTimestamp = (DateTimeHelper.GetUnixTimeMilliseconds(nextTime) * 1000000) + 1;
             }
         }
 

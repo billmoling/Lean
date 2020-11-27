@@ -20,16 +20,17 @@ using QuantConnect.Brokerages.Alpaca;
 using QuantConnect.Configuration;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
+using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.HistoricalData;
 using QuantConnect.Logging;
 using QuantConnect.Securities;
 
 namespace QuantConnect.Tests.Brokerages.Alpaca
 {
-    [TestFixture, Ignore("This test requires a configured and testable Alpaca practice account. Since it uses the Polygon API, the account needs to be funded.")]
+    [TestFixture, Explicit("This test requires a configured and testable Alpaca practice account. Since it uses the Polygon API, the account needs to be funded.")]
     public class AlpacaBrokerageHistoryProviderTests
     {
-        public TestCaseData[] TestParameters
+        private static TestCaseData[] TestParameters
         {
             get
             {
@@ -38,8 +39,10 @@ namespace QuantConnect.Tests.Brokerages.Alpaca
                 return new[]
                 {
                     // valid parameters
-                    new TestCaseData(aapl, Resolution.Tick, TimeSpan.FromMinutes(15), false),
-                    new TestCaseData(aapl, Resolution.Second, TimeSpan.FromMinutes(15), false),
+                    // Setting TimeSpan to 18 hours ensures that the market is open when running
+                    // the test during weekdays
+                    new TestCaseData(aapl, Resolution.Tick, TimeSpan.FromHours(18), false),
+                    new TestCaseData(aapl, Resolution.Second, TimeSpan.FromHours(18), false),
                     new TestCaseData(aapl, Resolution.Minute, Time.OneDay, false),
                     new TestCaseData(aapl, Resolution.Hour, Time.OneDay, false),
                     new TestCaseData(aapl, Resolution.Daily, TimeSpan.FromDays(30), false),
@@ -65,11 +68,11 @@ namespace QuantConnect.Tests.Brokerages.Alpaca
             var secretKey = Config.Get("alpaca-secret-key");
             var tradingMode = Config.Get("alpaca-trading-mode");
 
-            using (var brokerage = new AlpacaBrokerage(null, null, keyId, secretKey, tradingMode, true))
+            using (var brokerage = new AlpacaBrokerage(null, null, keyId, secretKey, tradingMode))
             {
                 var historyProvider = new BrokerageHistoryProvider();
                 historyProvider.SetBrokerage(brokerage);
-                historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, null, null, null, false));
+                historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, null, null, null, false, new DataPermissionManager()));
 
                 var now = DateTime.UtcNow;
 

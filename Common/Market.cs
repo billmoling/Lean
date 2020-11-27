@@ -55,7 +55,14 @@ namespace QuantConnect
             Tuple.Create(HitBTC, 19),
             Tuple.Create(OkCoin, 20),
             Tuple.Create(Bitstamp, 21),
-            Tuple.Create(XTSE,22),
+            
+            Tuple.Create(COMEX, 22),
+            Tuple.Create(CME, 23),
+            Tuple.Create(SGX, 24),
+            Tuple.Create(HKFE, 25),
+            Tuple.Create(XTSE, 26),
+
+
         };
 
         static Market()
@@ -124,6 +131,26 @@ namespace QuantConnect
         /// NSE
         /// </summary>
         public const string NSE = "nse";
+        
+        /// <summary>
+        /// Comex
+        /// </summary>
+        public const string COMEX = "comex";
+        
+        /// <summary>
+        /// CME
+        /// </summary>
+        public const string CME = "cme";
+
+        /// <summary>
+        /// Singapore Exchange
+        /// </summary>
+        public const string SGX = "sgx";
+
+        /// <summary>
+        /// Hong Kong Exchange
+        /// </summary>
+        public const string HKFE = "hkfe";
 
         /// <summary>
         /// GDAX

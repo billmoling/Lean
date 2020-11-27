@@ -18,7 +18,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-using QuantConnect.Util;
 
 namespace QuantConnect.Securities
 {
@@ -31,10 +30,31 @@ namespace QuantConnect.Securities
         private static readonly object DataFolderSymbolPropertiesDatabaseLock = new object();
 
         private readonly IReadOnlyDictionary<SecurityDatabaseKey, SymbolProperties> _entries;
+        private readonly IReadOnlyDictionary<SecurityDatabaseKey, SecurityDatabaseKey> _keyBySecurityType;
 
-        private SymbolPropertiesDatabase(IReadOnlyDictionary<SecurityDatabaseKey, SymbolProperties> entries)
+        private SymbolPropertiesDatabase(string file)
         {
-            _entries = entries.ToDictionary();
+            var allEntries = new Dictionary<SecurityDatabaseKey, SymbolProperties>();
+            var entriesBySecurityType = new Dictionary<SecurityDatabaseKey, SecurityDatabaseKey>();
+
+            foreach (var keyValuePair in FromCsvFile(file))
+            {
+                if (allEntries.ContainsKey(keyValuePair.Key))
+                {
+                    throw new DuplicateNameException($"Encountered duplicate key while processing file: {file}. Key: {keyValuePair.Key}");
+                }
+                // we wildcard the market, so per security type and symbol we will keep the *first* instance
+                // this allows us to fetch deterministically, in O(1), an entry without knowing the market, see 'TryGetMarket()'
+                var key = new SecurityDatabaseKey(SecurityDatabaseKey.Wildcard, keyValuePair.Key.Symbol, keyValuePair.Key.SecurityType);
+                if (!entriesBySecurityType.ContainsKey(key))
+                {
+                    entriesBySecurityType[key] = keyValuePair.Key;
+                }
+                allEntries[keyValuePair.Key] = keyValuePair.Value;
+            }
+
+            _entries = allEntries;
+            _keyBySecurityType = entriesBySecurityType;
         }
 
         /// <summary>
@@ -61,6 +81,27 @@ namespace QuantConnect.Securities
                 market,
                 MarketHoursDatabase.GetDatabaseSymbolKey(symbol),
                 securityType);
+        }
+
+        /// <summary>
+        /// Tries to get the market for the provided symbol/security type
+        /// </summary>
+        /// <param name="symbol">The particular symbol being traded</param>
+        /// <param name="securityType">The security type of the symbol</param>
+        /// <param name="market">The market the exchange resides in <see cref="Market"/></param>
+        /// <returns>True if market was retrieved, false otherwise</returns>
+        public bool TryGetMarket(string symbol, SecurityType securityType, out string market)
+        {
+            SecurityDatabaseKey result;
+            var key = new SecurityDatabaseKey(SecurityDatabaseKey.Wildcard, symbol, securityType);
+            if (_keyBySecurityType.TryGetValue(key, out result))
+            {
+                market = result.Market;
+                return true;
+            }
+
+            market = null;
+            return false;
         }
 
         /// <summary>
@@ -107,6 +148,45 @@ namespace QuantConnect.Securities
         }
 
         /// <summary>
+        /// Gets a list of symbol properties for the specified market/security-type
+        /// </summary>
+        /// <param name="market">The market the exchange resides in, i.e, 'usa', 'fxcm', ect...</param>
+        /// <param name="securityType">The security type of the symbol</param>
+        /// <returns>An IEnumerable of symbol properties matching the specified market/security-type</returns>
+        public IEnumerable<KeyValuePair<SecurityDatabaseKey, SymbolProperties>> GetSymbolPropertiesList(string market, SecurityType securityType)
+        {
+            foreach (var entry in _entries)
+            {
+                var key = entry.Key;
+                var symbolProperties = entry.Value;
+
+                if (key.Market == market && key.SecurityType == securityType)
+                {
+                    yield return new KeyValuePair<SecurityDatabaseKey, SymbolProperties>(key, symbolProperties);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets a list of symbol properties for the specified market
+        /// </summary>
+        /// <param name="market">The market the exchange resides in, i.e, 'usa', 'fxcm', ect...</param>
+        /// <returns>An IEnumerable of symbol properties matching the specified market</returns>
+        public IEnumerable<KeyValuePair<SecurityDatabaseKey, SymbolProperties>> GetSymbolPropertiesList(string market)
+        {
+            foreach (var entry in _entries)
+            {
+                var key = entry.Key;
+                var symbolProperties = entry.Value;
+
+                if (key.Market == market)
+                {
+                    yield return new KeyValuePair<SecurityDatabaseKey, SymbolProperties>(key, symbolProperties);
+                }
+            }
+        }
+
+        /// <summary>
         /// Gets the instance of the <see cref="SymbolPropertiesDatabase"/> class produced by reading in the symbol properties
         /// data found in /Data/symbol-properties/
         /// </summary>
@@ -118,7 +198,7 @@ namespace QuantConnect.Securities
                 if (_dataFolderSymbolPropertiesDatabase == null)
                 {
                     var directory = Path.Combine(Globals.DataFolder, "symbol-properties");
-                    _dataFolderSymbolPropertiesDatabase = FromCsvFile(Path.Combine(directory, "symbol-properties-database.csv"));
+                    _dataFolderSymbolPropertiesDatabase = new SymbolPropertiesDatabase(Path.Combine(directory, "symbol-properties-database.csv"));
                 }
             }
             return _dataFolderSymbolPropertiesDatabase;
@@ -129,10 +209,8 @@ namespace QuantConnect.Securities
         /// </summary>
         /// <param name="file">The csv file to be read</param>
         /// <returns>A new instance of the <see cref="SymbolPropertiesDatabase"/> class representing the data in the specified file</returns>
-        private static SymbolPropertiesDatabase FromCsvFile(string file)
+        private static IEnumerable<KeyValuePair<SecurityDatabaseKey, SymbolProperties>> FromCsvFile(string file)
         {
-            var entries = new Dictionary<SecurityDatabaseKey, SymbolProperties>();
-
             if (!File.Exists(file))
             {
                 throw new FileNotFoundException("Unable to locate symbol properties file: " + file);
@@ -143,15 +221,9 @@ namespace QuantConnect.Securities
             {
                 SecurityDatabaseKey key;
                 var entry = FromCsvLine(line, out key);
-                if (entries.ContainsKey(key))
-                {
-                    throw new DuplicateNameException($"Encountered duplicate key while processing file: {file}. Key: {key}");
-                }
 
-                entries[key] = entry;
+                yield return new KeyValuePair<SecurityDatabaseKey, SymbolProperties>(key, entry);
             }
-
-            return new SymbolPropertiesDatabase(entries);
         }
 
         /// <summary>
@@ -173,8 +245,9 @@ namespace QuantConnect.Securities
                 description: csv[3],
                 quoteCurrency: csv[4],
                 contractMultiplier: csv[5].ToDecimal(),
-                minimumPriceVariation: csv[6].ToDecimal(),
-                lotSize: csv[7].ToDecimal());
+                minimumPriceVariation: csv[6].ToDecimalAllowExponent(),
+                lotSize: csv[7].ToDecimal(),
+                marketTicker: csv.Length > 8 ? csv[8] : string.Empty);
         }
 
 
