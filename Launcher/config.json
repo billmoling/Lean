@@ -60,8 +60,8 @@
   "transaction-log": "",
 
   // To get your api access token go to quantconnect.com/account
-  "job-user-id": "0",
-  "api-access-token": "",
+  "job-user-id": "98954",
+  "api-access-token": "f2b5c12606472bfdc908b63ad8c9f68e2ee096aab572f76c52736f2f33030238",
 
   // live data configuration
   "live-data-url": "ws://www.quantconnect.com/api/v2/live/data/",
@@ -115,7 +115,7 @@
   "bitfinex-api-secret": "",
   "bitfinex-api-key": "",
 
-    // binance configuration
+  // binance configuration
   "binance-api-secret": "",
   "binance-api-key": "",
 
